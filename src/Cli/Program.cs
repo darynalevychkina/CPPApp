@@ -1,36 +1,36 @@
-﻿using System.Runtime.InteropServices;
+﻿using Core;
 using System.Text.Json;
 
 bool jsonMode = args.Contains("--json");
+EnvironmentReport report = EnvironmentInfo.Collect();
 
-var info = new
+var output = new
 {
-    OSDescription = RuntimeInformation.OSDescription,
-    OSVersion = Environment.OSVersion.ToString(),
-    Architecture = RuntimeInformation.ProcessArchitecture.ToString(),
-    DotnetVersion = Environment.Version.ToString(),
-    Runtime = RuntimeInformation.FrameworkDescription,
-    AppDirectory = AppContext.BaseDirectory,
-    CurrentDirectory = Environment.CurrentDirectory,
+    Student = "Levychkina Daryna, group FEI-34",
+    report.OsDescription,
+    report.FrameworkDescription,
+    report.ProcessArchitecture,
+    report.DetectedRid,
+    report.ReportedRid,
+    report.BaseDirectory,
     Domain = "Order (Vehicle Sales) - Customer, Vehicle, Order, OrderLine"
 };
 
 if (jsonMode)
 {
-    Console.WriteLine(JsonSerializer.Serialize(info));
+    Console.WriteLine(JsonSerializer.Serialize(output));
 }
 else
 {
-    Console.WriteLine("CrossApp - Cross-Platform Programming Practicum");
-    Console.WriteLine("Student: Levychkina Daryna, group FEI-34");
+    Console.WriteLine("CrossApp - environment information");
+    Console.WriteLine($"Student: {output.Student}");
     Console.WriteLine(new string('-', 52));
-    Console.WriteLine($"OS (OSDescription)      : {info.OSDescription}");
-    Console.WriteLine($"OS (Environment)        : {info.OSVersion}");
-    Console.WriteLine($"Process Architecture    : {info.Architecture}");
-    Console.WriteLine($".NET Version (CLR)      : {info.DotnetVersion}");
-    Console.WriteLine($"Runtime                 : {info.Runtime}");
-    Console.WriteLine($"Application Directory   : {info.AppDirectory}");
-    Console.WriteLine($"Current Directory       : {info.CurrentDirectory}");
+    Console.WriteLine($"OS               : {report.OsDescription}");
+    Console.WriteLine($"Runtime          : {report.FrameworkDescription}");
+    Console.WriteLine($"Architecture     : {report.ProcessArchitecture}");
+    Console.WriteLine($"RID (detected)   : {report.DetectedRid}");
+    Console.WriteLine($"RID (from .NET)  : {report.ReportedRid}");
+    Console.WriteLine($"Directory        : {report.BaseDirectory}");
     Console.WriteLine(new string('-', 52));
-    Console.WriteLine($"Domain: {info.Domain}");
+    Console.WriteLine($"Domain: {output.Domain}");
 }
