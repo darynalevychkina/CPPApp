@@ -23,7 +23,9 @@ dotnet publish src/Cli -c Release -r linux-x64 --self-contained true
 
 ## Run
 dotnet build
+
 dotnet run --project src/Cli
+
 dotnet run --project src/Cli -- --json
 
 ## Publish comparison
