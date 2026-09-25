@@ -23,7 +23,9 @@ Loads vehicle records from a CSV file (semicolon-separated, UTF-8). Prints the t
 Publish
 
 dotnet publish src/Cli -c Release -r win-x64 --self-contained true
+
 dotnet publish src/Cli -c Release -r win-x64 --self-contained false
+
 dotnet publish src/Cli -c Release -r linux-x64 --self-contained true
 
 Run without dotnet run (from publish folder)
