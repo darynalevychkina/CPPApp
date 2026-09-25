@@ -1,9 +1,11 @@
 CrossApp
+
 End-to-end project for the Cross-Platform Programming course.
 
 Domain: Order (Vehicle Sales). Entities: Customer, Vehicle, Order, OrderLine. Purpose: managing orders for the purchase of cars and motorcycles, calculating order totals.
 
 Environment
+
 .NET SDK 10.0, Windows x64
 
 Run
