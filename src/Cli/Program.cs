@@ -4,16 +4,41 @@ using Core.Import;
 using System.Text.Json;
 
 bool jsonMode = args.Contains("--json");
+bool mixedMode = args.Contains("--mixed");
 string[] positional = args.Where(a => !a.StartsWith("--")).ToArray();
-string path = positional.Length > 0 ? positional[0] : Path.Combine("data", "sample.csv");
-
-EnvironmentReport report = EnvironmentInfo.Collect();
+string path = positional.Length > 0 ? positional[0] : Path.Combine("data", mixedMode ? "mixed.csv" : "sample.csv");
 
 if (!File.Exists(path))
 {
     Console.WriteLine($"File not found: {Path.GetFullPath(path)}");
     return;
 }
+
+if (mixedMode)
+{
+    MixedImportResult mixed = MixedLineImporter.Load(path);
+
+    Console.WriteLine("CrossApp - mixed-line import (V = Vehicle, C = Customer)");
+    Console.WriteLine(new string('-', 52));
+    Console.WriteLine($"File: {path}");
+    Console.WriteLine($"Vehicles loaded : {mixed.Vehicles.Count}");
+    foreach (VehicleDto v in mixed.Vehicles)
+        Console.WriteLine($"  V {v.Id,-6} {v.Brand,-12} {v.Model,-14} {v.Year,6} {v.Price,10:F2}");
+
+    Console.WriteLine($"Customers loaded: {mixed.Customers.Count}");
+    foreach (CustomerDto c in mixed.Customers)
+        Console.WriteLine($"  C {c.Id,-6} {c.FullName,-20} {c.Phone}");
+
+    if (mixed.Errors.Count > 0)
+    {
+        Console.WriteLine($"Skipped lines: {mixed.Errors.Count}");
+        foreach (string e in mixed.Errors)
+            Console.WriteLine($"  ! {e}");
+    }
+    return;
+}
+
+EnvironmentReport report = EnvironmentInfo.Collect();
 
 ImportResult<VehicleDto> result = Path.GetExtension(path).ToLowerInvariant() switch
 {
