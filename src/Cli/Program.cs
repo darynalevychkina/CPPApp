@@ -15,7 +15,12 @@ if (!File.Exists(path))
     return;
 }
 
-ImportResult<VehicleDto> result = VehicleCsvImporter.Load(path);
+ImportResult<VehicleDto> result = Path.GetExtension(path).ToLowerInvariant() switch
+{
+    ".csv" => VehicleCsvImporter.Load(path),
+    ".json" => VehicleJsonImporter.Load(path),
+    var ext => new ImportResult<VehicleDto>([], [$"unsupported file extension '{ext}'"])
+};
 
 var output = new
 {
