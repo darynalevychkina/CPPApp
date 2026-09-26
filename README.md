@@ -1,24 +1,32 @@
 CrossApp
-
 End-to-end project for the Cross-Platform Programming course.
 
 Domain: Order (Vehicle Sales). Entities: Customer, Vehicle, Order, OrderLine. Purpose: managing orders for the purchase of cars and motorcycles, calculating order totals.
 
 Environment
-
 .NET SDK 10.0, Windows x64
 
 Run
 
 dotnet build
+
 dotnet run --project src/Cli
+
 dotnet run --project src/Cli -- --json
 
-CSV import
+Import
 
 dotnet run --project src/Cli -- data/sample.csv
 
-Loads vehicle records from a CSV file (semicolon-separated, UTF-8). Prints the total count, the first 5 records, and a list of skipped lines with line numbers and reasons for each parsing error. If no path is given, defaults to data/sample.csv. A missing file prints a clear message instead of throwing an unhandled exception.
+dotnet run --project src/Cli -- data/sample.json
+
+Loads vehicle records from a CSV or JSON file. The importer is selected automatically by file extension (.csv / .json). Prints the total count, the first 5 records, a list of skipped lines with reasons, and a one-line import summary (total / accepted / skipped / error rate). If no path is given, defaults to data/sample.csv. A missing file prints a clear message instead of throwing an unhandled exception.
+
+Mixed-line import
+
+dotnet run --project src/Cli -- --mixed data/mixed.csv
+
+Reads a file where each line starts with a type prefix: "V;..." for vehicles, "C;..." for customers. A single switch expression distinguishes the two record types by prefix and routes each line into its own result list.
 
 Publish
 
