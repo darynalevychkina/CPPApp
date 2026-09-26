@@ -47,6 +47,8 @@ ImportResult<VehicleDto> result = Path.GetExtension(path).ToLowerInvariant() swi
     var ext => new ImportResult<VehicleDto>([], [$"unsupported file extension '{ext}'"])
 };
 
+ImportStats stats = result.GetStats();
+
 var output = new
 {
     Student = "Levychkina Daryna, group FEI-34",
@@ -60,7 +62,8 @@ var output = new
     Domain = "Order (Vehicle Sales) - Customer, Vehicle, Order, OrderLine",
     ImportedCount = result.Items.Count,
     Items = result.Items,
-    Errors = result.Errors
+    Errors = result.Errors,
+    Stats = stats
 };
 
 if (jsonMode)
@@ -96,4 +99,7 @@ else
         foreach (string e in result.Errors)
             Console.WriteLine($"  ! {e}");
     }
+
+    Console.WriteLine();
+    Console.WriteLine(stats.ToString());
 }
