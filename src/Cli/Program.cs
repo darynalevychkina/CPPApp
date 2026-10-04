@@ -1,10 +1,19 @@
 ﻿using Core;
+using Core.Domain;
 using Core.Dto;
 using Core.Import;
 using System.Text.Json;
 
 bool jsonMode = args.Contains("--json");
 bool mixedMode = args.Contains("--mixed");
+bool domainMode = args.Contains("--domain");
+
+if (domainMode)
+{
+    RunDomainDemo();
+    return;
+}
+
 string[] positional = args.Where(a => !a.StartsWith("--")).ToArray();
 string path = positional.Length > 0 ? positional[0] : Path.Combine("data", mixedMode ? "mixed.csv" : "sample.csv");
 
@@ -102,4 +111,54 @@ else
 
     Console.WriteLine();
     Console.WriteLine(stats.ToString());
+}
+
+void RunDomainDemo()
+{
+    Console.WriteLine("CrossApp - Order domain model demo");
+    Console.WriteLine(new string('-', 52));
+
+    TryDo("Scenario 1: create order and add valid lines", () =>
+    {
+        Order order = Order.Create("O-001", "CU-01");
+        order.AddLine("V-001", "Toyota Corolla", 14500.00m, 1);
+        order.AddLine("V-005", "Yamaha MT-07", 7600.00m, 2);
+        order.Confirm();
+        Console.WriteLine(order);
+    });
+
+    TryDo("Scenario 2: quantity must be greater than zero", () =>
+    {
+        Order order = Order.Create("O-002", "CU-02");
+        order.AddLine("V-002", "BMW X5", 52300.00m, 0);
+    });
+
+    TryDo("Scenario 3: cannot add a line to a confirmed order", () =>
+    {
+        Order order = Order.Create("O-003", "CU-03");
+        order.AddLine("V-003", "Honda CBR650R", 9800.50m, 1);
+        order.Confirm();
+        order.AddLine("V-004", "Ford Focus", 11200.00m, 1);
+    });
+
+    TryDo("Scenario 4: cannot confirm an empty order", () =>
+    {
+        Order order = Order.Create("O-004", "CU-04");
+        order.Confirm();
+    });
+}
+
+void TryDo(string title, Action action)
+{
+    Console.WriteLine($"--- {title} ---");
+    try
+    {
+        action();
+        Console.WriteLine("OK");
+    }
+    catch (Exception ex)
+    {
+        Console.WriteLine($"FAILED: {ex.GetType().Name}: {ex.Message}");
+    }
+    Console.WriteLine();
 }
