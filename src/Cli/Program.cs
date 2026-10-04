@@ -146,6 +146,46 @@ void RunDomainDemo()
         Order order = Order.Create("O-004", "CU-04");
         order.Confirm();
     });
+
+    TryDo("Scenario 5: round-trip through ToDto / FromDto", () =>
+    {
+        Order original = Order.Create("O-005", "CU-05");
+        original.AddLine("V-006", "Volkswagen Golf", 10500.00m, 1);
+        original.Confirm();
+
+        OrderDto dto = original.ToDto();
+        Order restored = Order.FromDto(dto);
+
+        Console.WriteLine($"Original: {original}");
+        Console.WriteLine($"Restored: {restored}");
+    });
+
+    TryDo("Scenario 6: FromDto re-validates invariants on a corrupted DTO", () =>
+    {
+        var brokenDto = new OrderDto(
+            "O-006",
+            "CU-06",
+            IsConfirmed: false,
+            Lines: [new OrderLineDto("V-007", "Kawasaki Ninja400", -100.00m, 1)]);
+
+        Order.FromDto(brokenDto);
+    });
+
+    TryDo("Scenario 7: build OrderLine entities from a week-3 ImportResult<VehicleDto>", () =>
+    {
+        ImportResult<VehicleDto> imported = VehicleJsonImporter.Load(
+            Path.Combine("data", "vehicles_for_orders.json"));
+
+        ImportResult<OrderLine> lines = OrderLineFactory.FromVehicles(imported);
+
+        Console.WriteLine($"Lines created: {lines.Items.Count}");
+        foreach (OrderLine line in lines.Items)
+            Console.WriteLine($"  {line}");
+
+        Console.WriteLine($"Rejected: {lines.Errors.Count}");
+        foreach (string e in lines.Errors)
+            Console.WriteLine($"  ! {e}");
+    });
 }
 
 void TryDo(string title, Action action)
