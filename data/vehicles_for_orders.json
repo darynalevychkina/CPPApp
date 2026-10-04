@@ -1,0 +1,5 @@
+[
+  { "Id": "V-301", "Brand": "Toyota", "Model": "Camry", "Year": 2021, "Price": 21500.00 },
+  { "Id": "V-302", "Brand": "BMW", "Model": "M3", "Year": 2022, "Price": -500.00 },
+  { "Id": "V-303", "Brand": "Honda", "Model": "Civic", "Year": 2020, "Price": 16800.00 }
+]
