@@ -2,6 +2,7 @@
 using Core.Domain;
 using Core.Dto;
 using Core.Import;
+using Core.Services;
 using System.Text.Json;
 
 bool jsonMode = args.Contains("--json");
@@ -185,6 +186,28 @@ void RunDomainDemo()
         Console.WriteLine($"Rejected: {lines.Errors.Count}");
         foreach (string e in lines.Errors)
             Console.WriteLine($"  ! {e}");
+    });
+
+    TryDo("Scenario 8: cross-entity rule in OrderService (max 3 confirmed orders per customer)", () =>
+    {
+        var service = new OrderService(new InMemoryOrderRepository());
+
+        for (int i = 1; i <= 3; i++)
+        {
+            Order o = Order.Create($"O-10{i}", "CU-10");
+            o.AddLine("V-001", "Toyota Corolla", 14500.00m, 1);
+            service.ConfirmAndSave(o);
+            Console.WriteLine($"Confirmed {o.Id} for CU-10");
+        }
+
+        Order other = Order.Create("O-201", "CU-20");
+        other.AddLine("V-002", "BMW X5", 52300.00m, 1);
+        service.ConfirmAndSave(other);
+        Console.WriteLine($"Confirmed {other.Id} for CU-20 (different customer, no limit hit)");
+
+        Order fourth = Order.Create("O-104", "CU-10");
+        fourth.AddLine("V-003", "Honda CBR650R", 9800.50m, 1);
+        service.ConfirmAndSave(fourth);
     });
 }
 
