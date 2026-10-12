@@ -11,8 +11,9 @@ public sealed class Order
 
     public string Id { get; }
     public string CustomerId { get; }
-    public bool IsConfirmed { get; private set; }
+    public OrderStatus Status { get; private set; } = OrderStatus.Draft;
 
+    public bool IsConfirmed => Status == OrderStatus.Confirmed;
     public IReadOnlyList<OrderLine> Lines => _lines.AsReadOnly();
     public decimal Total => _lines.Sum(l => l.LineTotal);
 
@@ -35,8 +36,8 @@ public sealed class Order
 
     public void AddLine(string productId, string productName, decimal price, int quantity)
     {
-        if (IsConfirmed)
-            throw new InvalidOperationException($"Order {Id} is already confirmed, cannot add lines");
+        if (Status != OrderStatus.Draft)
+            throw new InvalidOperationException($"Order {Id} is {Status}, cannot add lines");
 
         OrderLine line = OrderLine.Create(productId, productName, price, quantity);
         _lines.Add(line);
@@ -47,29 +48,56 @@ public sealed class Order
         if (_lines.Count == 0)
             throw new InvalidOperationException($"Order {Id} has no lines, cannot confirm an empty order");
 
-        if (IsConfirmed)
-            throw new InvalidOperationException($"Order {Id} is already confirmed");
-
-        IsConfirmed = true;
+        ChangeStatus(OrderStatus.Confirmed);
     }
 
+    public void Cancel() => ChangeStatus(OrderStatus.Cancelled);
+
+    private void ChangeStatus(OrderStatus target)
+    {
+        if (!CanTransition(Status, target))
+            throw new InvalidOperationException(
+                $"Order {Id}: transition {Status} -> {target} is not allowed");
+
+        Status = target;
+    }
+
+    private static bool CanTransition(OrderStatus from, OrderStatus to) => (from, to) switch
+    {
+        (OrderStatus.Draft, OrderStatus.Confirmed) => true,
+        (OrderStatus.Draft, OrderStatus.Cancelled) => true,
+        (OrderStatus.Confirmed, OrderStatus.Cancelled) => true,
+        _ => false
+    };
+
     public OrderDto ToDto() =>
-        new(Id, CustomerId, IsConfirmed,
+        new(Id, CustomerId, Status.ToString(),
             _lines.Select(l => new OrderLineDto(l.ProductId, l.ProductName, l.Price, l.Quantity)).ToList());
 
     public static Order FromDto(OrderDto dto)
     {
+        if (!Enum.TryParse(dto.Status, ignoreCase: true, out OrderStatus status)
+            || !Enum.IsDefined(status))
+            throw new ArgumentException($"Unknown order status '{dto.Status}'", nameof(dto));
+
         Order order = Create(dto.Id, dto.CustomerId);
 
         foreach (OrderLineDto line in dto.Lines)
             order.AddLine(line.ProductId, line.ProductName, line.Price, line.Quantity);
 
-        if (dto.IsConfirmed)
-            order.Confirm();
+        switch (status)
+        {
+            case OrderStatus.Confirmed:
+                order.Confirm();
+                break;
+            case OrderStatus.Cancelled:
+                order.Cancel();
+                break;
+        }
 
         return order;
     }
 
     public override string ToString() =>
-        $"Order {Id} (customer {CustomerId}) - {_lines.Count} line(s), total {Total:F2}, confirmed: {IsConfirmed}";
+        $"Order {Id} (customer {CustomerId}) - {_lines.Count} line(s), total {Total:F2}, status: {Status}";
 }
