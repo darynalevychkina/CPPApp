@@ -54,6 +54,8 @@ The domain classes (Core/Domain) do not depend on Console or File I/O, or on the
 
 The Cli demo (--domain) wraps every scenario in a local TryDo(title, action) function that catches the exception and prints only its type name and message, never the full stack trace.
 
+* Order status is an explicit enum (Draft, Confirmed, Cancelled); only these transitions are allowed: Draft -> Confirmed, Draft -> Cancelled, Confirmed -> Cancelled. Cancelled is final. Transitions are validated with a switch expression inside Order.
+
 Publish
 
 dotnet publish src/Cli -c Release -r win-x64 --self-contained true
