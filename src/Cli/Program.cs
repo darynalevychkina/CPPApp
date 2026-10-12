@@ -166,7 +166,7 @@ void RunDomainDemo()
         var brokenDto = new OrderDto(
             "O-006",
             "CU-06",
-            IsConfirmed: false,
+            Status: "Draft",
             Lines: [new OrderLineDto("V-007", "Kawasaki Ninja400", -100.00m, 1)]);
 
         Order.FromDto(brokenDto);
@@ -208,6 +208,33 @@ void RunDomainDemo()
         Order fourth = Order.Create("O-104", "CU-10");
         fourth.AddLine("V-003", "Honda CBR650R", 9800.50m, 1);
         service.ConfirmAndSave(fourth);
+    });
+
+    TryDo("Scenario 9: valid status transitions (Draft -> Confirmed -> Cancelled)", () =>
+    {
+        Order order = Order.Create("O-009", "CU-09");
+        order.AddLine("V-008", "Audi A4", 24500.00m, 1);
+        Console.WriteLine($"Start        : {order.Status}");
+
+        order.Confirm();
+        Console.WriteLine($"After Confirm: {order.Status}");
+
+        order.Cancel();
+        Console.WriteLine($"After Cancel : {order.Status}");
+    });
+
+    TryDo("Scenario 10: forbidden transition (Cancelled -> Confirmed)", () =>
+    {
+        Order order = Order.Create("O-010", "CU-10");
+        order.AddLine("V-009", "Suzuki GSX-R750", 8700.00m, 1);
+        order.Cancel();
+        order.Confirm();
+    });
+
+    TryDo("Scenario 11: FromDto rejects an unknown status", () =>
+    {
+        var dto = new OrderDto("O-011", "CU-11", "Shipped", []);
+        Order.FromDto(dto);
     });
 }
 
