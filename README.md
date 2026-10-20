@@ -74,3 +74,5 @@ Publish comparison
 * win-x64, framework-dependent — 237 KB, 10 files, runtime required: yes (.NET 10)
 * linux-x64, self-contained — 80 MB, 197 files, runtime required: no
 * linux-x64, framework-dependent — 153 KB, 10 files, runtime required: yes (.NET 10)
+
+Order.Create("X", "Y").Status = OrderStatus.Confirmed;
