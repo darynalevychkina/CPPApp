@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using Core.Abstractions;
 using Core.Domain;
 
@@ -39,6 +40,13 @@ public sealed class CachingOrderStore(IOrderStore inner) : IOrderStore
         var order = _inner.GetById(id);
         _byId[id] = order;
         return order;
+    }
+
+    // a lambda cannot be used as a cache key, so take the (cached) full list and filter it
+    public IReadOnlyList<Order> Search(Func<Order, bool> predicate)
+    {
+        ArgumentNullException.ThrowIfNull(predicate);
+        return List().Where(predicate).ToList();
     }
 
     public void Add(Order order)
