@@ -84,3 +84,7 @@ dotnet run --project src/Cli -- --orders
 dotnet run --project src/Cli -- --file
 
 OrderService depends only on the IOrderStore interface (Core/Abstractions). Two implementations: InMemoryOrderStore (data lives until the process exits) and FileOrderStore (JSON file data/orders.json next to the executable, written through OrderDto). The implementation is chosen once, in Program.cs (composition root), via the --file flag. No DI container is used.
+
+dotnet run --project src/Cli -- --orders --cache
+
+CachingOrderStore is a decorator: it implements IOrderStore and wraps another IOrderStore, caching reads and invalidating the cache on every write. It is enabled with --cache.
