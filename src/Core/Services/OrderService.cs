@@ -1,6 +1,5 @@
 using System;
 using System.Collections.Generic;
-using System.Linq;
 using Core.Abstractions;
 using Core.Domain;
 
@@ -32,8 +31,10 @@ public sealed class OrderService(IOrderStore store)
         var order = _store.GetById(orderId)
             ?? throw new InvalidOperationException($"No order with id={orderId}.");
 
-        int confirmed = _store.List()
-            .Count(o => o.CustomerId == order.CustomerId && o.IsConfirmed && o.Id != order.Id);
+        // the cross-entity rule is itself a search by predicate
+        int confirmed = _store
+            .Search(o => o.CustomerId == order.CustomerId && o.IsConfirmed && o.Id != order.Id)
+            .Count;
 
         if (confirmed >= MaxConfirmedOrdersPerCustomer)
             throw new InvalidOperationException(
@@ -46,4 +47,6 @@ public sealed class OrderService(IOrderStore store)
     public IReadOnlyList<Order> All() => _store.List();
 
     public Order? Find(string id) => _store.GetById(id);
+
+    public IReadOnlyList<Order> Search(Func<Order, bool> predicate) => _store.Search(predicate);
 }
