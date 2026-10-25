@@ -1,13 +1,23 @@
 ﻿using Core;
+using Core.Abstractions;
 using Core.Domain;
 using Core.Dto;
 using Core.Import;
 using Core.Services;
+using Core.Storage;
 using System.Text.Json;
 
 bool jsonMode = args.Contains("--json");
 bool mixedMode = args.Contains("--mixed");
 bool domainMode = args.Contains("--domain");
+bool useFile = args.Contains("--file");
+bool ordersMode = args.Contains("--orders") || useFile;
+
+if (ordersMode)
+{
+    RunOrdersDemo(useFile);
+    return;
+}
 
 if (domainMode)
 {
@@ -114,6 +124,38 @@ else
     Console.WriteLine(stats.ToString());
 }
 
+void RunOrdersDemo(bool useFileStore)
+{
+    string dataPath = Path.Combine(AppContext.BaseDirectory, "data", "orders.json");
+
+    // composition root: the only place that knows concrete store classes
+    IOrderStore store = useFileStore
+        ? new FileOrderStore(dataPath)
+        : new InMemoryOrderStore();
+
+    var service = new OrderService(store);
+
+    Console.WriteLine($"Store: {store.GetType().Name}");
+    Console.WriteLine(new string('-', 52));
+
+    Order created = service.CreateOrder("CU-01");
+    service.AddLine(created.Id, "V-001", "Toyota Corolla", 14500.00m, 1);
+    service.AddLine(created.Id, "V-005", "Yamaha MT-07", 7600.00m, 2);
+    service.Confirm(created.Id);
+
+    Console.WriteLine($"Find by id: {service.Find(created.Id)}");
+    Console.WriteLine("All orders:");
+    foreach (Order o in service.All())
+        Console.WriteLine($"  {o}");
+
+    Console.WriteLine();
+    TryDo("Failure 1: add a line to an order that does not exist", () =>
+        service.AddLine("O-missing", "V-001", "Toyota Corolla", 14500.00m, 1));
+
+    TryDo("Failure 2: add an order with a duplicate id", () =>
+        store.Add(created));
+}
+
 void RunDomainDemo()
 {
     Console.WriteLine("CrossApp - Order domain model demo");
@@ -190,24 +232,24 @@ void RunDomainDemo()
 
     TryDo("Scenario 8: cross-entity rule in OrderService (max 3 confirmed orders per customer)", () =>
     {
-        var service = new OrderService(new InMemoryOrderRepository());
+        var service = new OrderService(new InMemoryOrderStore());
 
         for (int i = 1; i <= 3; i++)
         {
-            Order o = Order.Create($"O-10{i}", "CU-10");
-            o.AddLine("V-001", "Toyota Corolla", 14500.00m, 1);
-            service.ConfirmAndSave(o);
+            Order o = service.CreateOrder("CU-10");
+            service.AddLine(o.Id, "V-001", "Toyota Corolla", 14500.00m, 1);
+            service.Confirm(o.Id);
             Console.WriteLine($"Confirmed {o.Id} for CU-10");
         }
 
-        Order other = Order.Create("O-201", "CU-20");
-        other.AddLine("V-002", "BMW X5", 52300.00m, 1);
-        service.ConfirmAndSave(other);
+        Order other = service.CreateOrder("CU-20");
+        service.AddLine(other.Id, "V-002", "BMW X5", 52300.00m, 1);
+        service.Confirm(other.Id);
         Console.WriteLine($"Confirmed {other.Id} for CU-20 (different customer, no limit hit)");
 
-        Order fourth = Order.Create("O-104", "CU-10");
-        fourth.AddLine("V-003", "Honda CBR650R", 9800.50m, 1);
-        service.ConfirmAndSave(fourth);
+        Order fourth = service.CreateOrder("CU-10");
+        service.AddLine(fourth.Id, "V-003", "Honda CBR650R", 9800.50m, 1);
+        service.Confirm(fourth.Id);
     });
 
     TryDo("Scenario 9: valid status transitions (Draft -> Confirmed -> Cancelled)", () =>
@@ -235,6 +277,18 @@ void RunDomainDemo()
     {
         var dto = new OrderDto("O-011", "CU-11", "Shipped", []);
         Order.FromDto(dto);
+    });
+
+    TryDo("Scenario 12: state is unchanged after a failed operation", () =>
+    {
+        Order order = Order.Create("O-012", "CU-12");
+        order.AddLine("V-001", "Toyota Corolla", 14500.00m, 1);
+        Console.WriteLine($"Before: {order}");
+
+        try { order.AddLine("V-002", "BMW X5", 52300.00m, 0); }
+        catch (Exception ex) { Console.WriteLine($"Rejected: {ex.GetType().Name}"); }
+
+        Console.WriteLine($"After : {order}");
     });
 }
 
