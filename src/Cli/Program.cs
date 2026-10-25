@@ -159,6 +159,15 @@ void RunOrdersDemo(bool useFileStore, bool useCacheDecorator)
     if (useCacheDecorator)
         service.All();                                                  // second read comes from the cache
 
+    // search with a predicate: the caller decides the criterion, the store just applies it
+    Console.WriteLine("Search: orders of CU-01");
+    foreach (Order found in service.Search(o => o.CustomerId == "CU-01"))
+        Console.WriteLine($"  {found}");
+
+    Console.WriteLine("Search: confirmed orders with total above 20000");
+    foreach (Order found in service.Search(o => o.IsConfirmed && o.Total > 20000m))
+        Console.WriteLine($"  {found}");
+
     Console.WriteLine();
     TryDo("Failure 1: add a line to an order that does not exist", () =>
         service.AddLine("O-missing", "V-001", "Toyota Corolla", 14500.00m, 1));
