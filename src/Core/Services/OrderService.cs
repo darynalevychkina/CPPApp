@@ -1,28 +1,49 @@
 using System;
+using System.Collections.Generic;
+using System.Linq;
+using Core.Abstractions;
 using Core.Domain;
 
 namespace Core.Services;
 
-public sealed class OrderService
+public sealed class OrderService(IOrderStore store)
 {
     public const int MaxConfirmedOrdersPerCustomer = 3;
 
-    private readonly IOrderRepository _orders;
+    private readonly IOrderStore _store = store ?? throw new ArgumentNullException(nameof(store));
 
-    public OrderService(IOrderRepository orders)
+    public Order CreateOrder(string customerId)
     {
-        _orders = orders;
+        var order = Order.Create($"O-{Guid.NewGuid().ToString("N")[..8]}", customerId);
+        _store.Add(order);
+        return order;
     }
 
-    public void ConfirmAndSave(Order order)
+    public void AddLine(string orderId, string productId, string productName, decimal price, int quantity)
     {
-        int confirmed = _orders.CountConfirmedByCustomer(order.CustomerId);
+        var order = _store.GetById(orderId)
+            ?? throw new InvalidOperationException($"No order with id={orderId}.");
+        order.AddLine(productId, productName, price, quantity);
+        _store.Update(order);
+    }
+
+    public void Confirm(string orderId)
+    {
+        var order = _store.GetById(orderId)
+            ?? throw new InvalidOperationException($"No order with id={orderId}.");
+
+        int confirmed = _store.List()
+            .Count(o => o.CustomerId == order.CustomerId && o.IsConfirmed && o.Id != order.Id);
 
         if (confirmed >= MaxConfirmedOrdersPerCustomer)
             throw new InvalidOperationException(
                 $"Customer {order.CustomerId} already has {confirmed} confirmed orders (limit is {MaxConfirmedOrdersPerCustomer})");
 
         order.Confirm();
-        _orders.Add(order);
+        _store.Update(order);
     }
+
+    public IReadOnlyList<Order> All() => _store.List();
+
+    public Order? Find(string id) => _store.GetById(id);
 }
