@@ -76,3 +76,11 @@ Publish comparison
 * linux-x64, framework-dependent — 153 KB, 10 files, runtime required: yes (.NET 10)
 
 Order.Create("X", "Y").Status = OrderStatus.Confirmed;
+
+Service layer (IOrderStore)
+
+dotnet run --project src/Cli -- --orders
+
+dotnet run --project src/Cli -- --file
+
+OrderService depends only on the IOrderStore interface (Core/Abstractions). Two implementations: InMemoryOrderStore (data lives until the process exits) and FileOrderStore (JSON file data/orders.json next to the executable, written through OrderDto). The implementation is chosen once, in Program.cs (composition root), via the --file flag. No DI container is used.
