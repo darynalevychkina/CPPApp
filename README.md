@@ -88,3 +88,5 @@ OrderService depends only on the IOrderStore interface (Core/Abstractions). Two 
 dotnet run --project src/Cli -- --orders --cache
 
 CachingOrderStore is a decorator: it implements IOrderStore and wraps another IOrderStore, caching reads and invalidating the cache on every write. It is enabled with --cache.
+
+Stores accept a search predicate: IOrderStore.Search(Func<Order, bool>). The caller supplies the criterion as a lambda, so a store does not need a separate method for each query. This prepares the ground for LINQ in weeks 6-7.
