@@ -10,13 +10,11 @@ using System.Text.Json;
 bool jsonMode = args.Contains("--json");
 bool mixedMode = args.Contains("--mixed");
 bool domainMode = args.Contains("--domain");
-bool useFile = args.Contains("--file");
-bool useCache = args.Contains("--cache");
-bool ordersMode = args.Contains("--orders") || useFile || useCache;
+bool ordersMode = args.Contains("--orders") || args.Contains("--file") || args.Contains("--cache");
 
 if (ordersMode)
 {
-    RunOrdersDemo(useFile, useCache);
+    RunOrdersDemo(args);
     return;
 }
 
@@ -125,23 +123,15 @@ else
     Console.WriteLine(stats.ToString());
 }
 
-void RunOrdersDemo(bool useFileStore, bool useCacheDecorator)
+void RunOrdersDemo(string[] cliArgs)
 {
-    string dataPath = Path.Combine(AppContext.BaseDirectory, "data", "orders.json");
-
-    // composition root: the only place that knows concrete store classes
-    IOrderStore baseStore = useFileStore
-        ? new FileOrderStore(dataPath)
-        : new InMemoryOrderStore();
-
-    IOrderStore store = useCacheDecorator
-        ? new CachingOrderStore(baseStore)
-        : baseStore;
+    // composition root: the factory is the only place that knows concrete store classes
+    IOrderStore store = StoreFactory.Create(cliArgs);
+    bool cached = store is CachingOrderStore;
 
     var service = new OrderService(store);
 
-    Console.WriteLine($"Store: {store.GetType().Name}" +
-        (useCacheDecorator ? $" -> {baseStore.GetType().Name}" : ""));
+    Console.WriteLine($"Store: {store.GetType().Name}");
     Console.WriteLine(new string('-', 52));
 
     Order created = service.CreateOrder("CU-01");
@@ -150,16 +140,15 @@ void RunOrdersDemo(bool useFileStore, bool useCacheDecorator)
     service.Confirm(created.Id);
 
     Console.WriteLine($"Find by id: {service.Find(created.Id)}");
-    if (useCacheDecorator)
+    if (cached)
         Console.WriteLine($"Find again: {service.Find(created.Id)}");   // second read comes from the cache
 
     Console.WriteLine("All orders:");
     foreach (Order o in service.All())
         Console.WriteLine($"  {o}");
-    if (useCacheDecorator)
+    if (cached)
         service.All();                                                  // second read comes from the cache
 
-    // search with a predicate: the caller decides the criterion, the store just applies it
     Console.WriteLine("Search: orders of CU-01");
     foreach (Order found in service.Search(o => o.CustomerId == "CU-01"))
         Console.WriteLine($"  {found}");
