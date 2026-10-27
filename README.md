@@ -79,9 +79,9 @@ Order.Create("X", "Y").Status = OrderStatus.Confirmed;
 
 Service layer (IOrderStore)
 
-dotnet run --project src/Cli -- --orders
+dotnet run --project src/Cli -- --orders (2)
 
-dotnet run --project src/Cli -- --file
+dotnet run --project src/Cli -- --file (3)
 
 OrderService depends only on the IOrderStore interface (Core/Abstractions). Two implementations: InMemoryOrderStore (data lives until the process exits) and FileOrderStore (JSON file data/orders.json next to the executable, written through OrderDto). The implementation is chosen once, in Program.cs (composition root), via the --file flag. No DI container is used.
 
