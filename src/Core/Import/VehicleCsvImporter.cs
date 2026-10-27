@@ -44,11 +44,14 @@ public static class VehicleCsvImporter
 
         return parts switch
         {
+            //патерн властивості + реляційний патерн
             { Length: < 5 } => new ParseFailed($"expected 5 columns, got {parts.Length}"),
 
+            //патерн списку + константний патерн + логічний or
             [_, "", _, _, _] or [_, _, "", _, _]
                 => new ParseFailed("brand or model is empty"),
 
+            //охоронна умова
             [_, _, _, var year, _] when !int.TryParse(year, out int y) || y < 1900 || y > DateTime.Now.Year + 1
                 => new ParseFailed($"year '{year}' is out of range"),
 
