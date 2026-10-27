@@ -6,10 +6,10 @@ namespace Core.Abstractions;
 
 public interface IOrderStore
 {
-    IReadOnlyList<Order> List();
-    Order? GetById(string id);
-    IReadOnlyList<Order> Search(Func<Order, bool> predicate);
-    void Add(Order order);
-    void Update(Order order);
-    bool Remove(string id);
+    IReadOnlyList<Order> List(); //усі замовлення;
+    Order? GetById(string id); //одне замовлення, null, якщо немає;
+    IReadOnlyList<Order> Search(Func<Order, bool> predicate); //замовлення за довільною умовою;
+    void Add(Order order); //зберегти нове;
+    void Update(Order order); //зберегти після зміни;
+    bool Remove(string id); //видалити, true, якщо було.
 }
