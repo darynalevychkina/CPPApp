@@ -7,17 +7,17 @@ namespace Core.Domain;
 
 public sealed class Order
 {
-    private readonly List<OrderLine> _lines = [];
+    private readonly List<OrderLine> _lines = []; // приватне поле
 
     public string Id { get; }
     public string CustomerId { get; }
-    public OrderStatus Status { get; private set; } = OrderStatus.Draft;
+    public OrderStatus Status { get; private set; } = OrderStatus.Draft; // властивість без публічного set
 
     public bool IsConfirmed => Status == OrderStatus.Confirmed;
     public IReadOnlyList<OrderLine> Lines => _lines.AsReadOnly();
     public decimal Total => _lines.Sum(l => l.LineTotal);
 
-    private Order(string id, string customerId)
+    private Order(string id, string customerId)   // приватний конструктор
     {
         Id = id;
         CustomerId = customerId;
@@ -25,6 +25,7 @@ public sealed class Order
 
     public static Order Create(string id, string customerId)
     {
+        // № 4: id замовлення не порожній
         if (string.IsNullOrWhiteSpace(id))
             throw new ArgumentException("Order id cannot be empty", nameof(id));
 
@@ -36,6 +37,7 @@ public sealed class Order
 
     public void AddLine(string productId, string productName, decimal price, int quantity)
     {
+        // № 5: рядки додаються тільки до Draft
         if (Status != OrderStatus.Draft)
             throw new InvalidOperationException($"Order {Id} is {Status}, cannot add lines");
 
@@ -45,6 +47,7 @@ public sealed class Order
 
     public void Confirm()
     {
+        // № 6: порожнє замовлення не підтверджується
         if (_lines.Count == 0)
             throw new InvalidOperationException($"Order {Id} has no lines, cannot confirm an empty order");
 
@@ -55,6 +58,7 @@ public sealed class Order
 
     private void ChangeStatus(OrderStatus target)
     {
+        // № 7: перехід має бути дозволений
         if (!CanTransition(Status, target))
             throw new InvalidOperationException(
                 $"Order {Id}: transition {Status} -> {target} is not allowed");
@@ -62,6 +66,7 @@ public sealed class Order
         Status = target;
     }
 
+// № 7: список дозволених переходів
     private static bool CanTransition(OrderStatus from, OrderStatus to) => (from, to) switch
     {
         (OrderStatus.Draft, OrderStatus.Confirmed) => true,
@@ -78,6 +83,7 @@ public sealed class Order
     {
         if (!Enum.TryParse(dto.Status, ignoreCase: true, out OrderStatus status)
             || !Enum.IsDefined(status))
+            // № 8: статус із DTO має бути відомим
             throw new ArgumentException($"Unknown order status '{dto.Status}'", nameof(dto));
 
         Order order = Create(dto.Id, dto.CustomerId);
