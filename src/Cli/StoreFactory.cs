@@ -15,7 +15,7 @@ public static class StoreFactory
 
         string dataPath = Path.Combine(AppContext.BaseDirectory, "data", "orders.json");
 
-        IOrderStore store = useFile
+        IOrderStore store = useFile //composition root
             ? new FileOrderStore(dataPath)
             : new InMemoryOrderStore();
 
