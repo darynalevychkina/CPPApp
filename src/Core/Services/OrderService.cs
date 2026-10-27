@@ -5,7 +5,7 @@ using Core.Domain;
 
 namespace Core.Services;
 
-public sealed class OrderService(IOrderStore store)
+public sealed class OrderService(IOrderStore store) //тип параметра є інтерфейсом
 {
     public const int MaxConfirmedOrdersPerCustomer = 3;
 
