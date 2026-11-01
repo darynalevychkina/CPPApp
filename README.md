@@ -90,3 +90,9 @@ dotnet run --project src/Cli -- --orders --cache
 CachingOrderStore is a decorator: it implements IOrderStore and wraps another IOrderStore, caching reads and invalidating the cache on every write. It is enabled with --cache.
 
 Stores accept a search predicate: IOrderStore.Search(Func<Order, bool>). The caller supplies the criterion as a lambda, so a store does not need a separate method for each query. This prepares the ground for LINQ in weeks 6-7.
+
+dotnet run --project src/Cli -- --events
+
+dotnet run --project src/Cli -- --skipped
+
+OrderService raises a Changed event (EventHandler<OrderChangedEventArgs>) after every successful change: OrderCreated, LineAdded, OrderConfirmed. Core does not write to the console or to files: Cli subscribes with a local function (console + logs/app.log) and a lambda counter, then unsubscribes with -=. Predicate search uses Func<Order, bool>. VehicleCsvImporter.Load accepts an optional Action<string> that is called for every skipped line.
