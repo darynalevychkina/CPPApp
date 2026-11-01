@@ -2,6 +2,7 @@
 using Core.Abstractions;
 using Core.Domain;
 using Core.Dto;
+using Core.Events;
 using Core.Import;
 using Core.Services;
 using Core.Storage;
@@ -10,7 +11,21 @@ using System.Text.Json;
 bool jsonMode = args.Contains("--json");
 bool mixedMode = args.Contains("--mixed");
 bool domainMode = args.Contains("--domain");
+bool eventsMode = args.Contains("--events");
+bool skippedMode = args.Contains("--skipped");
 bool ordersMode = args.Contains("--orders") || args.Contains("--file") || args.Contains("--cache");
+
+if (eventsMode)
+{
+    RunEventsDemo(args);
+    return;
+}
+
+if (skippedMode)
+{
+    RunSkippedDemo();
+    return;
+}
 
 if (ordersMode)
 {
@@ -123,6 +138,98 @@ else
     Console.WriteLine(stats.ToString());
 }
 
+void RunEventsDemo(string[] cliArgs)
+{
+    string logPath = Path.Combine(AppContext.BaseDirectory, "logs", "app.log");
+    Directory.CreateDirectory(Path.GetDirectoryName(logPath)!);
+    File.Delete(logPath);                                   // every run starts with a fresh log
+
+    IOrderStore store = StoreFactory.Create(cliArgs);
+    var service = new OrderService(store);
+
+    Console.WriteLine("CrossApp - domain events demo");
+    Console.WriteLine($"Store: {store.GetType().Name}");
+    Console.WriteLine(new string('-', 52));
+
+    // subscriber 1: a local function (has a name, so we can unsubscribe it later)
+    void OnOrderChanged(object? sender, OrderChangedEventArgs e)
+    {
+        string line = $"{e.At:HH:mm:ss} {e.Kind,-14} {e.OrderId} lines={e.LinesCount} total={e.Total:F2}";
+        Console.WriteLine(line);
+        File.AppendAllText(logPath, line + Environment.NewLine);
+    }
+
+    service.Changed += OnOrderChanged;
+
+    // subscriber 2: a lambda with a closure over the local variable 'changes'
+    int changes = 0;
+    service.Changed += (_, _) =>
+    {
+        changes++;
+        Console.WriteLine($"  counter -> {changes}");
+    };
+
+    // successful operations: each one raises exactly one event
+    Order order = service.CreateOrder("CU-01");
+    service.AddLine(order.Id, "V-001", "Toyota Corolla", 14500.00m, 1);
+    service.AddLine(order.Id, "V-005", "Yamaha MT-07", 7600.00m, 2);
+    service.Confirm(order.Id);
+    Console.WriteLine($"Events received: {changes}");
+    Console.WriteLine();
+
+    // failure scenario: an exception is shown, but there is no event line
+    int before = changes;
+    TryDo("Failure 1: add a line to an order that does not exist", () =>
+        service.AddLine("O-missing", "V-001", "Toyota Corolla", 14500.00m, 1));
+    TryDo("Failure 2: add a line to an already confirmed order", () =>
+        service.AddLine(order.Id, "V-002", "BMW X5", 52300.00m, 1));
+    Console.WriteLine($"Events during failures: {changes - before}");
+    Console.WriteLine();
+
+    // a delegate instead of an event: we need a value back, so Func
+    Console.WriteLine("Search with a predicate (Func<Order, bool>): total above 20000");
+    foreach (Order found in service.Search(o => o.Total > 20000m))
+        Console.WriteLine($"  {found}");
+    Console.WriteLine();
+
+    // unsubscribe: the operation still works, but the console/log handler is silent
+    service.Changed -= OnOrderChanged;
+    Order second = service.CreateOrder("CU-02");
+    service.AddLine(second.Id, "V-003", "Honda CBR650R", 9800.50m, 1);
+    Console.WriteLine($"Lines in the second order: {service.Find(second.Id)!.Lines.Count} (data changed, no log lines)");
+    Console.WriteLine($"Events received: {changes}");
+    Console.WriteLine($"Log file: {logPath}");
+}
+
+// optional task 2: Action<string> as a parameter of the import method
+void RunSkippedDemo()
+{
+    string csvPath = Path.Combine("data", "sample.csv");
+    if (!File.Exists(csvPath))
+    {
+        Console.WriteLine($"File not found: {Path.GetFullPath(csvPath)}");
+        return;
+    }
+
+    string reportPath = Path.Combine(AppContext.BaseDirectory, "logs", "skipped.log");
+    Directory.CreateDirectory(Path.GetDirectoryName(reportPath)!);
+    File.Delete(reportPath);
+
+    Console.WriteLine("CrossApp - skipped-lines report via Action<string>");
+    Console.WriteLine(new string('-', 52));
+
+    int skipped = 0;
+    ImportResult<VehicleDto> imported = VehicleCsvImporter.Load(csvPath, reason =>
+    {
+        skipped++;
+        Console.WriteLine($"  skipped: {reason}");
+        File.AppendAllText(reportPath, reason + Environment.NewLine);
+    });
+
+    Console.WriteLine($"Loaded: {imported.Items.Count}, reported through the callback: {skipped}, in Errors: {imported.Errors.Count}");
+    Console.WriteLine($"Report file: {reportPath}");
+}
+
 void RunOrdersDemo(string[] cliArgs)
 {
     // composition root: the factory is the only place that knows concrete store classes
@@ -134,12 +241,32 @@ void RunOrdersDemo(string[] cliArgs)
     Console.WriteLine($"Store: {store.GetType().Name}");
     Console.WriteLine(new string('-', 52));
 
+    // order 1: CU-01, confirmed
     Order created = service.CreateOrder("CU-01");
+    Console.WriteLine($"Created order {created.Id} for CU-01");
     service.AddLine(created.Id, "V-001", "Toyota Corolla", 14500.00m, 1);
     service.AddLine(created.Id, "V-005", "Yamaha MT-07", 7600.00m, 2);
+    Console.WriteLine("Added 2 lines");
     service.Confirm(created.Id);
+    Console.WriteLine("Confirmed");
+
+    // order 2: another customer, confirmed
+    Order bmw = service.CreateOrder("CU-02");
+    Console.WriteLine($"Created order {bmw.Id} for CU-02");
+    service.AddLine(bmw.Id, "V-002", "BMW X5", 52300.00m, 1);
+    service.Confirm(bmw.Id);
+    Console.WriteLine("Added 1 line, confirmed");
+
+    // order 3: CU-01 again, left as a draft
+    Order draft = service.CreateOrder("CU-01");
+    Console.WriteLine($"Created order {draft.Id} for CU-01 (draft)");
+    service.AddLine(draft.Id, "V-003", "Honda CBR650R", 9800.50m, 1);
+    Console.WriteLine("Added 1 line, left as draft");
+    Console.WriteLine();
 
     Console.WriteLine($"Find by id: {service.Find(created.Id)}");
+    foreach (OrderLine line in service.Find(created.Id)!.Lines)
+        Console.WriteLine($"  {line}");
     if (cached)
         Console.WriteLine($"Find again: {service.Find(created.Id)}");   // second read comes from the cache
 
@@ -159,7 +286,7 @@ void RunOrdersDemo(string[] cliArgs)
 
     Console.WriteLine();
     TryDo("Failure 1: add a line to an order that does not exist", () =>
-        service.AddLine("O-missing", "V-001", "Toyota Corolla", 14500.00m, 1));
+        service.AddLine("O-c90caa77", "V-001", "Toyota Corolla", 14500.00m, 1));
 
     TryDo("Failure 2: add an order with a duplicate id", () =>
         store.Add(created));
