@@ -4,9 +4,11 @@ namespace Core.Import;
 
 public static class VehicleCsvImporter
 {
+    // Separator is a semicolon: doesn't conflict with the decimal point in prices.
     private const char Separator = ';';
 
-    public static ImportResult<VehicleDto> Load(string path)
+    // onSkipped is optional: Core only reports "a line was skipped", the caller decides where to show it
+    public static ImportResult<VehicleDto> Load(string path, Action<string>? onSkipped = null)
     {
         var items = new List<VehicleDto>();
         var errors = new List<string>();
@@ -30,7 +32,9 @@ public static class VehicleCsvImporter
                     items.Add(ok.Value);
                     break;
                 case ParseFailed failed:
-                    errors.Add($"line {number}: {failed.Reason}");
+                    string message = $"line {number}: {failed.Reason}";
+                    errors.Add(message);
+                    onSkipped?.Invoke(message);
                     break;
             }
         }
