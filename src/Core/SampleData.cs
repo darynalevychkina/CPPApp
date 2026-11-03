@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using Core.Domain;
+using Core.Dto;
 
 namespace Core;
 
@@ -39,6 +40,17 @@ public static class SampleData
         Build("O-015", "CU-06", Fate.Confirmed, ("V-015", "Renault Duster", 14300.00m, 1)),
         Build("O-016", "CU-06", Fate.Confirmed, ("V-005", "Yamaha MT-07", 7600.00m, 3)),
         Build("O-017", "CU-06", Fate.Cancelled, ("V-016", "BMW M3", 61500.00m, 1)),
+    ];
+
+    public static IReadOnlyList<CustomerDto> Customers() =>
+    [
+        new("CU-01", "Olena Kovalenko", "+380501110001", "olena@example.com"),
+        new("CU-02", "Andrii Shevchenko", "+380501110002"),
+        new("CU-03", "Iryna Bondar", "+380501110003", "iryna@example.com"),
+        new("CU-04", "Taras Melnyk", "+380501110004"),
+        new("CU-05", "Maria Tkachenko", "+380501110005", "maria@example.com"),
+        new("CU-06", "Oleh Savchenko", "+380501110006"),
+        new("CU-07", "Sofiia Lysenko", "+380501110007"),   // has no orders: shows the GroupJoin / Join difference
     ];
 
     private static Order Build(string id, string customerId, Fate fate,
