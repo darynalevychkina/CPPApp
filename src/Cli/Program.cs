@@ -4,6 +4,7 @@ using Core.Domain;
 using Core.Dto;
 using Core.Events;
 using Core.Import;
+using Core.Reports;
 using Core.Services;
 using Core.Storage;
 using System.Text.Json;
@@ -15,6 +16,13 @@ bool eventsMode = args.Contains("--events");
 bool sinksMode = args.Contains("--sinks");
 bool skippedMode = args.Contains("--skipped");
 bool ordersMode = args.Contains("--orders") || args.Contains("--file") || args.Contains("--cache");
+string? reportCommand = args.FirstOrDefault(a => a.StartsWith("report-"));
+
+if (reportCommand is not null)
+{
+    RunReport(reportCommand, args);
+    return;
+}
 
 if (eventsMode)
 {
@@ -145,6 +153,79 @@ else
     Console.WriteLine(stats.ToString());
 }
 
+// lab 7: reports. All the queries live in ReportService (Core); here we only call them and print.
+void RunReport(string command, string[] cliArgs)
+{
+    IOrderStore store = StoreFactory.Create(cliArgs, SampleData.Orders());
+    var service = new OrderService(store);
+    var items = service.All();
+
+    Console.WriteLine($"Store: {store.GetType().Name}, orders: {items.Count}");
+    Console.WriteLine(new string('-', 52));
+
+    switch (command)
+    {
+        case "report-top":
+            Console.WriteLine("Top 5 customers by the sum of confirmed orders");
+            PrintCustomers(ReportService.TopCustomers(items, 5));
+            break;
+
+        case "report-expensive":
+            Console.WriteLine("Orders more expensive than 20000");
+            PrintOrders(ReportService.ExpensiveOrders(items, 20000m));
+            break;
+
+        case "report-groups":
+            Console.WriteLine("Orders by status");
+            foreach (var g in ReportService.ByStatus(items))
+                Console.WriteLine($"  {g.Status,-10} orders: {g.Count,3}   total: {g.Total,12:F2}");
+            break;
+
+        case "report-sum":
+            var t = ReportService.Totals(items);
+            Console.WriteLine($"  confirmed orders {t.Orders}, total {t.Total:F2}, average {t.Average:F2}, max {t.Max:F2}");
+            break;
+
+        case "report-lazy":
+            RunLazyDemo(items);
+            break;
+
+        default:
+            Console.WriteLine("report-top | report-expensive | report-groups | report-sum | report-lazy");
+            break;
+    }
+}
+
+void PrintOrders(IReadOnlyList<OrderSummary> rows)
+{
+    foreach (var row in rows)
+        Console.WriteLine($"  {row.OrderId,-8} {row.CustomerId,-6} {row.Status,-10} {row.Lines,2} line(s) {row.Total,12:F2}");
+}
+
+void PrintCustomers(IReadOnlyList<CustomerTotal> rows)
+{
+    foreach (var row in rows)
+        Console.WriteLine($"  {row.CustomerId,-6} orders: {row.Orders,2}   total: {row.Total,12:F2}");
+}
+
+// deferred execution: the query is built once and executed every time it is enumerated
+void RunLazyDemo(IReadOnlyList<Order> items)
+{
+    var source = items.ToList();                          // a local list: service.All() returns a snapshot
+    var query = source.Where(o => o.Total > 20000m);      // the query is built, not executed
+    Console.WriteLine($"Expensive before changes: {query.Count()}");
+
+    Order extra = Order.Create("O-TMP", "CU-99");
+    extra.AddLine("V-999", "Demo item", 25000.00m, 1);
+    source.Add(extra);
+    Console.WriteLine($"Expensive after changes : {query.Count()}");   // a different number
+
+    var snapshot = query.ToList();                        // the result is fixed
+    source.Clear();
+    Console.WriteLine($"Snapshot still holds    : {snapshot.Count}"); // does not change
+    Console.WriteLine($"Query now sees          : {query.Count()}");  // the source is empty now
+}
+
 void RunEventsDemo(string[] cliArgs)
 {
     string logPath = Path.Combine(AppContext.BaseDirectory, "logs", "app.log");
@@ -208,7 +289,7 @@ void RunEventsDemo(string[] cliArgs)
     Console.WriteLine($"Log file: {logPath}");
 }
 
-// optional task 1: the same notifications through INotificationSink passed to the constructor
+// optional task 1 of lab 6: the same notifications through INotificationSink passed to the constructor
 void RunSinksDemo(string[] cliArgs)
 {
     string logPath = Path.Combine(AppContext.BaseDirectory, "logs", "sinks.log");
@@ -237,7 +318,7 @@ void RunSinksDemo(string[] cliArgs)
     Console.WriteLine($"Log file: {logPath}");
 }
 
-// optional task 2: Action<string> as a parameter of the import method
+// optional task 2 of lab 6: Action<string> as a parameter of the import method
 void RunSkippedDemo()
 {
     string csvPath = Path.Combine("data", "sample.csv");
