@@ -190,6 +190,11 @@ void RunReport(string command, string[] cliArgs)
             RunLazyDemo(items);
             break;
 
+        case "report-toporders":
+            Console.WriteLine("Top 3 orders by total (any status)");
+            PrintOrders(ReportService.TopOrders(items, 3));
+            break;
+
         case "report-join":
         {
             var customers = SampleData.Customers();
@@ -205,7 +210,7 @@ void RunReport(string command, string[] cliArgs)
         }
 
         default:
-            Console.WriteLine("report-top | report-expensive | report-groups | report-sum | report-lazy | report-join");
+            Console.WriteLine("report-top | report-expensive | report-groups | report-sum | report-lazy | report-join | report-toporders");
             break;
     }
 }
