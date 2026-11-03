@@ -190,8 +190,22 @@ void RunReport(string command, string[] cliArgs)
             RunLazyDemo(items);
             break;
 
+        case "report-join":
+        {
+            var customers = SampleData.Customers();
+
+            Console.WriteLine("GroupJoin: every customer with the orders (left join)");
+            foreach (var r in ReportService.CustomerOrders(customers, items))
+                Console.WriteLine($"  {r.CustomerId,-6} {r.FullName,-18} orders: {r.Orders,2}  confirmed: {r.Confirmed,2}  total: {r.ConfirmedTotal,12:F2}");
+
+            var pairs = ReportService.CustomerOrderPairs(customers, items);
+            Console.WriteLine();
+            Console.WriteLine($"Join: (customer, order) pairs: {pairs.Count}, customers present: {pairs.Select(p => p.CustomerId).Distinct().Count()} of {customers.Count}");
+            break;
+        }
+
         default:
-            Console.WriteLine("report-top | report-expensive | report-groups | report-sum | report-lazy");
+            Console.WriteLine("report-top | report-expensive | report-groups | report-sum | report-lazy | report-join");
             break;
     }
 }
