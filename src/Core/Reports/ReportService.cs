@@ -15,13 +15,18 @@ public static class ReportService
             .Select(o => new OrderSummary(o.Id, o.CustomerId, o.Status.ToString(), o.Lines.Count, o.Total))
             .ToList();
 
-    // 2) top-N with a stable order: customers by the sum of confirmed orders
+    // 2) top-N with a stable order: customers by the sum of confirmed orders (uses our TopBy extension)
     public static IReadOnlyList<CustomerTotal> TopCustomers(IEnumerable<Order> source, int n) =>
         source.Where(o => o.IsConfirmed)
             .GroupBy(o => o.CustomerId, StringComparer.OrdinalIgnoreCase)
             .Select(g => new CustomerTotal(g.Key, g.Count(), g.Sum(o => o.Total)))
-            .OrderByDescending(c => c.Total).ThenBy(c => c.CustomerId, StringComparer.Ordinal)
-            .Take(n)
+            .TopBy(c => c.Total, n, c => c.CustomerId)
+            .ToList();
+
+    // 2b) top-N orders by total, any status (uses our TopBy extension)
+    public static IReadOnlyList<OrderSummary> TopOrders(IEnumerable<Order> source, int n) =>
+        source.TopBy(o => o.Total, n, o => o.Id)
+            .Select(o => new OrderSummary(o.Id, o.CustomerId, o.Status.ToString(), o.Lines.Count, o.Total))
             .ToList();
 
     // 3) grouping with count and sum
