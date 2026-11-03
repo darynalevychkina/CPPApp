@@ -1,12 +1,14 @@
 using System;
+using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using Core.Abstractions;
+using Core.Domain;
 using Core.Storage;
 
 public static class StoreFactory
 {
-    public static IOrderStore Create(string[] args)
+    public static IOrderStore Create(string[] args, IEnumerable<Order>? seed = null)
     {
         ArgumentNullException.ThrowIfNull(args);
 
@@ -17,7 +19,7 @@ public static class StoreFactory
 
         IOrderStore store = useFile //composition root
             ? new FileOrderStore(dataPath)
-            : new InMemoryOrderStore();
+            : new InMemoryOrderStore(seed);
 
         return useCache
             ? new CachingOrderStore(store)
