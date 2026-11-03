@@ -29,6 +29,25 @@ public static class ReportService
             .Select(o => new OrderSummary(o.Id, o.CustomerId, o.Status.ToString(), o.Lines.Count, o.Total))
             .ToList();
 
+    // 2c) the same report as TopCustomers, but with ToList in the middle of the chain (for the timing comparison)
+    public static IReadOnlyList<CustomerTotal> TopCustomersMaterialized(IEnumerable<Order> source, int n)
+    {
+        var confirmed = source.Where(o => o.IsConfirmed).ToList();                 // extra list #1
+
+        var totals = confirmed
+            .GroupBy(o => o.CustomerId, StringComparer.OrdinalIgnoreCase)
+            .Select(g => new CustomerTotal(g.Key, g.Count(), g.Sum(o => o.Total)))
+            .ToList();                                                             // extra list #2
+
+        return totals.TopBy(c => c.Total, n, c => c.CustomerId).ToList();
+    }
+
+    // 2d) a lazy query on purpose (no ToList): every enumeration runs it again
+    public static IEnumerable<CustomerTotal> CustomerTotalsLazy(IEnumerable<Order> source) =>
+        source.Where(o => o.IsConfirmed)
+            .GroupBy(o => o.CustomerId, StringComparer.OrdinalIgnoreCase)
+            .Select(g => new CustomerTotal(g.Key, g.Count(), g.Sum(o => o.Total)));
+
     // 3) grouping with count and sum (method syntax)
     public static IReadOnlyList<StatusSummary> ByStatus(IEnumerable<Order> source) =>
         source.GroupBy(o => o.Status.ToString(), StringComparer.OrdinalIgnoreCase)
