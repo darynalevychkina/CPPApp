@@ -29,12 +29,25 @@ public static class ReportService
             .Select(o => new OrderSummary(o.Id, o.CustomerId, o.Status.ToString(), o.Lines.Count, o.Total))
             .ToList();
 
-    // 3) grouping with count and sum
+    // 3) grouping with count and sum (method syntax)
     public static IReadOnlyList<StatusSummary> ByStatus(IEnumerable<Order> source) =>
         source.GroupBy(o => o.Status.ToString(), StringComparer.OrdinalIgnoreCase)
             .Select(g => new StatusSummary(g.Key, g.Count(), g.Sum(o => o.Total)))
             .OrderByDescending(s => s.Total).ThenBy(s => s.Status, StringComparer.Ordinal)
             .ToList();
+
+    // 3b) the same report in query syntax: from ... group ... into ...
+    public static IReadOnlyList<StatusSummary> ByStatusQuery(IEnumerable<Order> source)
+    {
+        var query =
+            from o in source
+            group o by o.Status.ToString() into g
+            let total = g.Sum(o => o.Total)
+            orderby total descending, g.Key
+            select new StatusSummary(g.Key, g.Count(), total);
+
+        return query.ToList();
+    }
 
     // 4) aggregates over confirmed orders, empty sequence handled
     public static (int Orders, decimal Total, decimal Average, decimal Max) Totals(IEnumerable<Order> source)
