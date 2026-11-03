@@ -138,3 +138,11 @@ Optional tasks:
 - `report-toporders`: our own extension method `TopBy(keySelector, n, tieBreaker)` (in `EnumerableExtensions`) replaces the manual `OrderByDescending` + `ThenBy` + `Take`; it is used in two reports, `TopCustomers` and `TopOrders`.
 - `report-query`: the report "orders by status" written in query syntax (`from ... group ... into ...`) next to the method syntax; the command checks that both give the same result. Query syntax reads almost like SQL and is clearer when a query has several steps and an intermediate value (`let total = ...`), while method syntax is shorter for simple chains and has the operators and comparers that query syntax lacks (`Take`, `Distinct`, `StringComparer.OrdinalIgnoreCase`). Both compile to the same method calls, so the speed is the same.
 - `report-bench`: Stopwatch timing on 100000 generated orders (3 warm-up runs, a forced garbage collection, the average of 5 runs, Release build). Averages of three runs (the first run after start was a cold-start outlier and is not counted): one chain with `ToList` only at the end 41.5 ms, `ToList` in the middle of the chain 32.8 ms, a lazy query enumerated twice 54.9 ms, `ToList` once and reuse 27.3 ms. `ToList` in the middle of one chain gave only a small gain and costs extra memory, but when the same query is used twice, materializing it once makes it about 2 times faster. The numbers depend on the computer.
+
+| Variant | Average, ms |
+| A: one chain, `ToList` only at the end | 41.5 |
+| B: `ToList` in the middle of the chain | 32.8 |
+| C: lazy query enumerated twice | 54.9 |
+| D: `ToList` once, then reuse the list | 27.3 |
+
+`ToList` in the middle of a single chain gave only a small gain (about 20%) and costs two extra lists in memory, so it is not worth adding by default. When the same query is used twice, a lazy query runs again on every enumeration, so materializing it once with `ToList` makes it about 2 times faster. The numbers depend on the computer and should be repeated several times.
