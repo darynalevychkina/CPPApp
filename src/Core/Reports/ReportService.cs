@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using Core.Domain;
+using Core.Dto;
 
 namespace Core.Reports;
 
@@ -41,4 +42,32 @@ public static class ReportService
                confirmed.Average(o => o.Total),
                confirmed.Max(o => o.Total));
     }
+
+    // 5) GroupJoin: one row per customer, even when the customer has no orders (left join)
+    public static IReadOnlyList<CustomerOrderSummary> CustomerOrders(IEnumerable<CustomerDto> customers, IEnumerable<Order> orders) =>
+        customers.GroupJoin(
+                orders,
+                c => c.Id,
+                o => o.CustomerId,
+                (c, os) => new CustomerOrderSummary(
+                    c.Id,
+                    c.FullName,
+                    os.Count(),
+                    os.Count(o => o.IsConfirmed),
+                    os.Where(o => o.IsConfirmed).Sum(o => o.Total)),
+                StringComparer.OrdinalIgnoreCase)
+            .OrderByDescending(r => r.ConfirmedTotal).ThenBy(r => r.CustomerId, StringComparer.Ordinal)
+            .ToList();
+
+    // 6) Join: one row per (customer, order) pair, a customer without orders disappears (inner join)
+    public static IReadOnlyList<(string CustomerId, string FullName, string OrderId, decimal Total)> CustomerOrderPairs(
+        IEnumerable<CustomerDto> customers, IEnumerable<Order> orders) =>
+        customers.Join(
+                orders,
+                c => c.Id,
+                o => o.CustomerId,
+                (c, o) => (CustomerId: c.Id, FullName: c.FullName, OrderId: o.Id, Total: o.Total),
+                StringComparer.OrdinalIgnoreCase)
+            .OrderBy(r => r.CustomerId, StringComparer.Ordinal).ThenBy(r => r.OrderId, StringComparer.Ordinal)
+            .ToList();
 }
