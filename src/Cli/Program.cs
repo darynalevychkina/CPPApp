@@ -7,6 +7,7 @@ using Core.Import;
 using Core.Reports;
 using Core.Services;
 using Core.Storage;
+using System.Diagnostics;
 using System.Text.Json;
 
 bool jsonMode = args.Contains("--json");
@@ -17,6 +18,12 @@ bool sinksMode = args.Contains("--sinks");
 bool skippedMode = args.Contains("--skipped");
 bool ordersMode = args.Contains("--orders") || args.Contains("--file") || args.Contains("--cache");
 string? reportCommand = args.FirstOrDefault(a => a.StartsWith("report-"));
+
+if (reportCommand == "report-bench")
+{
+    RunBench();
+    return;
+}
 
 if (reportCommand is not null)
 {
@@ -221,9 +228,70 @@ void RunReport(string command, string[] cliArgs)
         }
 
         default:
-            Console.WriteLine("report-top | report-expensive | report-groups | report-sum | report-lazy | report-join | report-toporders | report-query");
+            Console.WriteLine("report-top | report-expensive | report-groups | report-sum | report-lazy | report-join | report-toporders | report-query | report-bench");
             break;
     }
+}
+
+// lab 7, optional task 4: timing with Stopwatch on generated data
+void RunBench()
+{
+    const int count = 100_000;
+
+    Console.WriteLine($"CrossApp - LINQ timing on {count} generated orders");
+    Console.WriteLine("Tip: run with -c Release, Debug numbers are not honest");
+    Console.WriteLine(new string('-', 52));
+
+    var generation = Stopwatch.StartNew();
+    IReadOnlyList<Order> orders = SampleData.Generate(count);
+    generation.Stop();
+    Console.WriteLine($"Generated {orders.Count} orders in {generation.Elapsed.TotalMilliseconds:F1} ms");
+    Console.WriteLine();
+
+    var (msA, topA) = Measure(() => ReportService.TopCustomers(orders, 5));
+    var (msB, topB) = Measure(() => ReportService.TopCustomersMaterialized(orders, 5));
+
+    Console.WriteLine("Top-5 customers, average of 5 runs");
+    Console.WriteLine($"  A: no ToList in the middle    : {msA,8:F1} ms");
+    Console.WriteLine($"  B: ToList in the middle (x2)  : {msB,8:F1} ms");
+    Console.WriteLine($"  Same result: {topA.SequenceEqual(topB)}");
+    Console.WriteLine();
+
+    var (msC, _) = Measure(() =>
+    {
+        var query = ReportService.CustomerTotalsLazy(orders);    // a lazy query, nothing runs yet
+        int first = query.Count();                               // runs the whole query
+        var list = query.ToList();                               // runs the whole query again
+        return first + list.Count;
+    });
+
+    var (msD, _) = Measure(() =>
+    {
+        var list = ReportService.CustomerTotalsLazy(orders).ToList();   // runs once
+        return list.Count + list.Count;                                 // reuses the list
+    });
+
+    Console.WriteLine("The same query used twice (count and list), average of 5 runs");
+    Console.WriteLine($"  C: lazy query enumerated twice: {msC,8:F1} ms");
+    Console.WriteLine($"  D: ToList once, then reuse    : {msD,8:F1} ms");
+}
+
+(double Ms, T Value) Measure<T>(Func<T> action, int runs = 5)
+{
+    T last = default!;
+    for (int i = 0; i < 3; i++)
+        last = action();
+
+    GC.Collect();
+    GC.WaitForPendingFinalizers();
+    GC.Collect();
+
+    var timer = Stopwatch.StartNew();
+    for (int i = 0; i < runs; i++)
+        last = action();
+    timer.Stop();
+
+    return (timer.Elapsed.TotalMilliseconds / runs, last);
 }
 
 void PrintOrders(IReadOnlyList<OrderSummary> rows)
