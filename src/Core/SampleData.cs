@@ -53,6 +53,37 @@ public static class SampleData
         new("CU-07", "Sofiia Lysenko", "+380501110007"),   // has no orders: shows the GroupJoin / Join difference
     ];
 
+    // lab 7, optional task 4: many orders for timing. The fixed seed makes every run produce the same data.
+    public static IReadOnlyList<Order> Generate(int count, int seed = 42)
+    {
+        var random = new Random(seed);
+        var result = new List<Order>(count);
+
+        for (int i = 1; i <= count; i++)
+        {
+            Order order = Order.Create($"G-{i:D6}", $"CU-{random.Next(1, 1001):D4}");
+
+            int lines = random.Next(1, 4);
+            for (int j = 0; j < lines; j++)
+                order.AddLine($"V-{random.Next(1, 200):D3}", "Generated item", random.Next(1000, 60000), random.Next(1, 4));
+
+            int roll = random.Next(100);
+            if (roll < 60)
+            {
+                order.Confirm();                       // 60% confirmed
+            }
+            else if (roll < 75)
+            {
+                order.Confirm();                       // 15% cancelled
+                order.Cancel();
+            }                                          // 25% stay drafts
+
+            result.Add(order);
+        }
+
+        return result;
+    }
+
     private static Order Build(string id, string customerId, Fate fate,
         params (string ProductId, string Name, decimal Price, int Quantity)[] lines)
     {
