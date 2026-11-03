@@ -195,6 +195,17 @@ void RunReport(string command, string[] cliArgs)
             PrintOrders(ReportService.TopOrders(items, 3));
             break;
 
+        case "report-query":
+        {
+            Console.WriteLine("Orders by status (query syntax: from ... group ... into ...)");
+            var byQuery = ReportService.ByStatusQuery(items);
+            foreach (var row in byQuery)
+                Console.WriteLine($"  {row.Status,-10} orders: {row.Count,3}   total: {row.Total,12:F2}");
+
+            Console.WriteLine($"Same result as method syntax: {byQuery.SequenceEqual(ReportService.ByStatus(items))}");
+            break;
+        }
+
         case "report-join":
         {
             var customers = SampleData.Customers();
@@ -210,7 +221,7 @@ void RunReport(string command, string[] cliArgs)
         }
 
         default:
-            Console.WriteLine("report-top | report-expensive | report-groups | report-sum | report-lazy | report-join | report-toporders");
+            Console.WriteLine("report-top | report-expensive | report-groups | report-sum | report-lazy | report-join | report-toporders | report-query");
             break;
     }
 }
