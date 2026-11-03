@@ -12,12 +12,19 @@ bool jsonMode = args.Contains("--json");
 bool mixedMode = args.Contains("--mixed");
 bool domainMode = args.Contains("--domain");
 bool eventsMode = args.Contains("--events");
+bool sinksMode = args.Contains("--sinks");
 bool skippedMode = args.Contains("--skipped");
 bool ordersMode = args.Contains("--orders") || args.Contains("--file") || args.Contains("--cache");
 
 if (eventsMode)
 {
     RunEventsDemo(args);
+    return;
+}
+
+if (sinksMode)
+{
+    RunSinksDemo(args);
     return;
 }
 
@@ -198,6 +205,35 @@ void RunEventsDemo(string[] cliArgs)
     service.AddLine(second.Id, "V-003", "Honda CBR650R", 9800.50m, 1);
     Console.WriteLine($"Lines in the second order: {service.Find(second.Id)!.Lines.Count} (data changed, no log lines)");
     Console.WriteLine($"Events received: {changes}");
+    Console.WriteLine($"Log file: {logPath}");
+}
+
+// optional task 1: the same notifications through INotificationSink passed to the constructor
+void RunSinksDemo(string[] cliArgs)
+{
+    string logPath = Path.Combine(AppContext.BaseDirectory, "logs", "sinks.log");
+    Directory.CreateDirectory(Path.GetDirectoryName(logPath)!);
+    File.Delete(logPath);
+
+    IOrderStore store = StoreFactory.Create(cliArgs);
+
+    // composition root: Cli decides which sinks the service gets (manual DI, as in week 5)
+    var service = new OrderService(store, [new ConsoleSink(), new FileSink(logPath)]);
+
+    Console.WriteLine("CrossApp - notification sinks demo");
+    Console.WriteLine($"Store: {store.GetType().Name}");
+    Console.WriteLine(new string('-', 52));
+
+    Order order = service.CreateOrder("CU-01");
+    service.AddLine(order.Id, "V-001", "Toyota Corolla", 14500.00m, 1);
+    service.AddLine(order.Id, "V-005", "Yamaha MT-07", 7600.00m, 2);
+    service.Confirm(order.Id);
+    Console.WriteLine();
+
+    TryDo("Failure: add a line to an already confirmed order", () =>
+        service.AddLine(order.Id, "V-002", "BMW X5", 52300.00m, 1));
+
+    Console.WriteLine("Sinks are fixed at construction: there is no way to unsubscribe.");
     Console.WriteLine($"Log file: {logPath}");
 }
 
