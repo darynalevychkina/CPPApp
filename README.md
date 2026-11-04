@@ -112,10 +112,9 @@ The log files are created next to the executable (`src/Cli/bin/.../logs/`) and a
 ## LINQ reports (lab 7)
 
 ```
-- `dotnet run --project src/Cli -- report-top` (top 5 customers by the sum of their confirmed orders)
-- `dotnet run --project src/Cli -- report-expensive` (orders more expensive than 20000, from the most expensive)
 - `dotnet run --project src/Cli -- report-groups` (number of orders and total sum for each status: Confirmed, Cancelled, Draft)
 - `dotnet run --project src/Cli -- report-sum` (count, total, average and maximum of the confirmed orders; zeros if there are none)
+- `dotnet run --project src/Cli -- report-top` (top 5 customers by the sum of their confirmed orders)
 - `dotnet run --project src/Cli -- report-lazy` (demo of deferred execution: the same query gives 9, then 10 after the source changes, and ToList keeps a snapshot)
 - `dotnet run --project src/Cli -- report-join` (every customer with the number and total of their orders, including a customer without orders; GroupJoin compared with Join)
 - `dotnet run --project src/Cli -- report-toporders` (top 3 orders by total, any status, using our own TopBy extension method)
