@@ -29,7 +29,7 @@ public sealed class InMemoryOrderStore(IEnumerable<Order>? seed = null) : IOrder
     {
         ArgumentNullException.ThrowIfNull(order);
         if (_items.ContainsKey(order.Id))
-            throw new InvalidOperationException($"Order with id={order.Id} already exists.");
+            throw new DomainException($"Order with id={order.Id} already exists.");
         _items.Add(order.Id, order);
     }
 }
