@@ -63,7 +63,7 @@ public sealed class FileOrderStore(string path) : IOrderStore
         ArgumentNullException.ThrowIfNull(order);
         EnsureLoaded();
         if (_cache.ContainsKey(order.Id))
-            throw new InvalidOperationException($"Order with id={order.Id} already exists.");
+            throw new DomainException($"Order with id={order.Id} already exists.");
         _cache.Add(order.Id, order);
         Flush();
     }
