@@ -39,7 +39,7 @@ public sealed class Order
     {
         // № 5: рядки додаються тільки до Draft
         if (Status != OrderStatus.Draft)
-            throw new InvalidOperationException($"Order {Id} is {Status}, cannot add lines");
+            throw new DomainException($"Order {Id} is {Status}, cannot add lines");
 
         OrderLine line = OrderLine.Create(productId, productName, price, quantity);
         _lines.Add(line);
@@ -49,7 +49,7 @@ public sealed class Order
     {
         // № 6: порожнє замовлення не підтверджується
         if (_lines.Count == 0)
-            throw new InvalidOperationException($"Order {Id} has no lines, cannot confirm an empty order");
+            throw new DomainException($"Order {Id} has no lines, cannot confirm an empty order");
 
         ChangeStatus(OrderStatus.Confirmed);
     }
@@ -60,7 +60,7 @@ public sealed class Order
     {
         // № 7: перехід має бути дозволений
         if (!CanTransition(Status, target))
-            throw new InvalidOperationException(
+            throw new DomainException(
                 $"Order {Id}: transition {Status} -> {target} is not allowed");
 
         Status = target;

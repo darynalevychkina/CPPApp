@@ -16,6 +16,8 @@ bool domainMode = args.Contains("--domain");
 bool eventsMode = args.Contains("--events");
 bool sinksMode = args.Contains("--sinks");
 bool skippedMode = args.Contains("--skipped");
+bool importMode = args.Contains("--import") || args.Contains("--import-stream");
+bool importGenMode = args.Contains("--import-gen");
 bool ordersMode = args.Contains("--orders") || args.Contains("--file") || args.Contains("--cache");
 string? reportCommand = args.FirstOrDefault(a => a.StartsWith("report-"));
 
@@ -28,6 +30,18 @@ if (reportCommand == "report-bench")
 if (reportCommand is not null)
 {
     RunReport(reportCommand, args);
+    return;
+}
+
+if (importGenMode)
+{
+    RunImportGen(args);
+    return;
+}
+
+if (importMode)
+{
+    await RunImportAsync(args);
     return;
 }
 
@@ -372,7 +386,7 @@ void RunEventsDemo(string[] cliArgs)
     Console.WriteLine($"Events during failures: {changes - before}");
     Console.WriteLine();
 
-    // a delegate instead of an event: we need a value back, so Func
+    // we need a value back, so Func
     Console.WriteLine("Search with a predicate (Func<Order, bool>): total above 20000");
     foreach (Order found in service.Search(o => o.Total > 20000m))
         Console.WriteLine($"  {found}");
@@ -659,4 +673,107 @@ void TryDo(string title, Action action)
         Console.WriteLine($"FAILED: {ex.GetType().Name}: {ex.Message}");
     }
     Console.WriteLine();
+}
+
+// lab 8: async import with cooperative cancellation (Ctrl+C or --timeout <ms>)
+async Task RunImportAsync(string[] cliArgs)
+{
+    string[] positional = cliArgs.Where(a => !a.StartsWith("--")).ToArray();
+    string importPath = positional.FirstOrDefault(a => !int.TryParse(a, out _))
+                        ?? Path.Combine("data", "orders_import.json");
+
+    using var cts = new CancellationTokenSource();
+
+    // Ctrl+C asks for cancellation instead of killing the process
+    Console.CancelKeyPress += (_, e) =>
+    {
+        e.Cancel = true;
+        cts.Cancel();
+        Console.WriteLine("Cancelling...");
+    };
+
+    // --timeout <ms>: linked with Ctrl+C inside OrderService.ImportWithTimeoutAsync
+    TimeSpan? timeout = null;
+    int timeoutIndex = Array.IndexOf(cliArgs, "--timeout");
+    if (timeoutIndex >= 0 && timeoutIndex + 1 < cliArgs.Length && int.TryParse(cliArgs[timeoutIndex + 1], out int ms))
+        timeout = TimeSpan.FromMilliseconds(ms);
+
+    var service = new OrderService(new InMemoryOrderStore());
+    service.Changed += (_, e) =>
+    {
+        if (!cliArgs.Contains("--progress")                     // the progress line has the console to itself
+            && (e.OrderId.EndsWith("00", StringComparison.Ordinal) || e.OrderId.Length < 6))
+            Console.WriteLine($"  imported {e.OrderId}");
+    };
+
+    var watch = Stopwatch.StartNew();
+    try
+    {
+        bool stream = cliArgs.Contains("--import-stream");
+        var importer = new JsonOrderImporter();
+
+        // the subscriber draws percent on one console line; null = no --progress flag
+        IProgress<ImportProgress>? progress = cliArgs.Contains("--progress")
+            ? new SyncProgress<ImportProgress>(p =>
+                Console.Write(p.Percent is { } percent
+                    ? $"\r  Progress: {percent,3}% ({p.Processed}/{p.Total})"
+                    : $"\r  Processed: {p.Processed}"))
+            : null;
+
+        int added = timeout is { } limit
+            ? await service.ImportWithTimeoutAsync(importer, importPath, limit, cts.Token, stream, progress)
+            : stream
+                ? await service.ImportStreamAsync(importer, importPath, cts.Token, progress)
+                : await service.ImportAsync(importer, importPath, cts.Token, progress);
+
+        if (progress is not null)
+            Console.WriteLine();                           // finish the progress line
+        Console.WriteLine($"Imported orders: {added} ({watch.ElapsedMilliseconds} ms{(stream ? ", streaming" : "")})");
+    }
+    catch (TimeoutException ex)                  // the timeout token fired, not the user
+    {
+        if (cliArgs.Contains("--progress")) Console.WriteLine();   // leave the progress line
+        Console.WriteLine($"Import timed out: {ex.Message}. Saved before timeout: {service.All().Count}.");
+    }
+    catch (OperationCanceledException)           // the user pressed Ctrl+C; before the other catches: cancellation is not an error
+    {
+        if (cliArgs.Contains("--progress")) Console.WriteLine();   // leave the progress line
+        Console.WriteLine(cliArgs.Contains("--import-stream")
+            ? $"Import cancelled after {watch.ElapsedMilliseconds} ms. Saved before cancel: {service.All().Count}."
+            : $"Import cancelled after {watch.ElapsedMilliseconds} ms. Nothing was saved.");
+    }
+    catch (DomainException ex)
+    {
+        if (cliArgs.Contains("--progress")) Console.WriteLine();
+        Console.WriteLine($"Data rejected: {ex.Message}");
+        if (ex.InnerException is not null)
+            Console.WriteLine($"  cause: {ex.InnerException.GetType().Name}");
+    }
+    catch (FileNotFoundException)
+    {
+        Console.WriteLine($"File not found: {Path.GetFullPath(importPath)}");
+    }
+    catch (DirectoryNotFoundException)
+    {
+        Console.WriteLine($"File not found: {Path.GetFullPath(importPath)}");
+    }
+}
+
+// helper for the cancellation demo: --import-gen <count> <path>
+void RunImportGen(string[] cliArgs)
+{
+    int i = Array.IndexOf(cliArgs, "--import-gen");
+    int count = i + 1 < cliArgs.Length && int.TryParse(cliArgs[i + 1], out int n) ? n : 200_000;
+    string target = i + 2 < cliArgs.Length ? cliArgs[i + 2] : Path.Combine("data", "orders_big.json");
+
+    var dtos = SampleData.Generate(count).Select(o => o.ToDto()).ToList();
+    File.WriteAllText(target, JsonSerializer.Serialize(dtos));
+    Console.WriteLine($"Generated {count} orders -> {target}");
+}
+
+// Progress<T> posts callbacks to the thread pool when there is no SynchronizationContext (a console app),
+// so the last percent could be printed after the "Imported orders" line. This one calls the handler inline.
+sealed class SyncProgress<T>(Action<T> handler) : IProgress<T>
+{
+    public void Report(T value) => handler(value);
 }

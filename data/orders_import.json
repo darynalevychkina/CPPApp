@@ -1,0 +1,8 @@
+[
+  { "id": "I-001", "customerId": "CU-01", "status": "Confirmed",
+    "lines": [ { "productId": "V-001", "productName": "Toyota Corolla", "price": 14500.00, "quantity": 1 } ] },
+  { "id": "I-002", "customerId": "CU-02", "status": "Draft",
+    "lines": [ { "productId": "V-005", "productName": "Yamaha MT-07", "price": 7600.00, "quantity": 2 } ] },
+  { "id": "I-003", "customerId": "CU-03", "status": "Cancelled",
+    "lines": [ { "productId": "V-008", "productName": "Audi A4", "price": 24500.00, "quantity": 1 } ] }
+]
