@@ -15,7 +15,8 @@ public static class StoreFactory
         bool useFile = args.Contains("--file");
         bool useCache = args.Contains("--cache");
 
-        string dataPath = Path.Combine(AppContext.BaseDirectory, "data", "orders.json");
+        // the path comes from configuration (appsettings.json / CROSSAPP_* variables), not from a literal
+        string dataPath = AppConfig.Current.DataFilePath;
 
         IOrderStore store = useFile //composition root
             ? new FileOrderStore(dataPath)
