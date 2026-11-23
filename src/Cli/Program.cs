@@ -18,6 +18,7 @@ bool sinksMode = args.Contains("--sinks");
 bool skippedMode = args.Contains("--skipped");
 bool importMode = args.Contains("--import") || args.Contains("--import-stream");
 bool importGenMode = args.Contains("--import-gen");
+bool exportMode = args.Contains("--export");
 bool ordersMode = args.Contains("--orders") || args.Contains("--file") || args.Contains("--cache");
 string? reportCommand = args.FirstOrDefault(a => a.StartsWith("report-"));
 
@@ -30,6 +31,12 @@ if (reportCommand == "report-bench")
 if (reportCommand is not null)
 {
     RunReport(reportCommand, args);
+    return;
+}
+
+if (exportMode)
+{
+    RunExport();
     return;
 }
 
@@ -673,6 +680,69 @@ void TryDo(string title, Action action)
         Console.WriteLine($"FAILED: {ex.GetType().Name}: {ex.Message}");
     }
     Console.WriteLine();
+}
+
+// lab 9: export the whole collection to JSON; the file path comes from configuration
+void RunExport()
+{
+    try
+    {
+        AppSettings cfg = AppConfig.Current;
+
+        Console.WriteLine($"Profile   : {cfg.EnvironmentName} (log level: {cfg.Options.Logging.MinimumLevel})");
+        if (string.Equals(cfg.Options.Logging.MinimumLevel, "Debug", StringComparison.OrdinalIgnoreCase))
+        {
+            // the detailed log of the Development profile: where relative paths start
+            Console.WriteLine($"[debug] AppContext.BaseDirectory  : {AppContext.BaseDirectory}");
+            Console.WriteLine($"[debug] Environment.CurrentDirectory: {Environment.CurrentDirectory}");
+            Console.WriteLine($"[debug] CROSSAPP_DATA_PATH         : {Environment.GetEnvironmentVariable("CROSSAPP_DATA_PATH") ?? "(not set)"}");
+        }
+
+        Console.WriteLine($"Data file : {cfg.DataFilePath}");
+        Console.WriteLine(cfg.ApiKey is null ? "ApiKey: not set" : $"ApiKey: present, length {cfg.ApiKey.Length}");   // never the value
+
+        var store = new FileOrderStore(cfg.DataFilePath);
+        if (store.List().Count == 0)
+        {
+            foreach (Order o in ExportSeed())
+                store.Add(o);                                   // every Add is an atomic write (.tmp + File.Move)
+            Console.WriteLine("The data file was empty: sample orders were added.");
+        }
+
+        IReadOnlyList<Order> all = store.List();
+        decimal confirmed = all.Where(o => o.IsConfirmed).Sum(o => o.Total);
+        Console.WriteLine($"Exported {all.Count} records. Confirmed total: {confirmed:F2} {cfg.Options.Orders.Currency}");
+
+        Console.WriteLine($"{Path.GetFileName(cfg.DataFilePath)}:");
+        foreach (string line in File.ReadLines(cfg.DataFilePath).Take(16))
+            Console.WriteLine(line);
+        Console.WriteLine("...");
+    }
+    catch (DomainException ex)
+    {
+        Console.WriteLine($"Data rejected: {ex.Message}");
+    }
+    catch (Exception ex) when (ex is InvalidDataException or FormatException)
+    {
+        Console.WriteLine($"Configuration error: {ex.Message}");
+    }
+    catch (Exception ex) when (ex is UnauthorizedAccessException or IOException)
+    {
+        // e.g. CROSSAPP_DATA_PATH points to a folder we may not create or write to
+        Console.WriteLine($"Cannot use the data folder: {ex.Message}");
+        Console.WriteLine("Check Storage:DataPath / CROSSAPP_DATA_PATH, or unset the variable.");
+    }
+}
+
+// sample orders + one with a Cyrillic product name (it must stay readable in the file, not become \u0422)
+IEnumerable<Order> ExportSeed()
+{
+    foreach (Order o in SampleData.Orders())
+        yield return o;
+
+    Order cyrillic = Order.Create("O-900", "CU-07");
+    cyrillic.AddLine("V-001", "Тойота Королла", 14500.00m, 1);
+    yield return cyrillic;
 }
 
 // lab 8: async import with cooperative cancellation (Ctrl+C or --timeout <ms>)
