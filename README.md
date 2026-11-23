@@ -149,3 +149,36 @@ Optional tasks:
 | D: `ToList` once, then reuse the list | 27.3 |
 
 `ToList` in the middle of a single chain gave only a small gain (about 20%) and costs two extra lists in memory, so it is not worth adding by default. When the same query is used twice, a lazy query runs again on every enumeration, so materializing it once with `ToList` makes it about 2 times faster. The numbers depend on the computer and should be repeated several times.
+
+Async import, cancellation, DomainException and tests (lab 8)
+
+dotnet run --project src/Cli -- --import
+
+dotnet run --project src/Cli -- --import data/orders_import_bad.json
+
+dotnet run --project src/Cli -- --import-stream data/orders_import.json
+
+dotnet run --project src/Cli -- --import-gen 300000 data/orders_big.json
+
+dotnet run --project src/Cli -- --import data/orders_big.json --timeout 100 --progress
+
+dotnet test
+
+dotnet test --collect:"XPlat Code Coverage"
+
+Orders are imported from a JSON file asynchronously (IOrderImporter / JsonOrderImporter in Core). The file is read with FileStream(useAsync: true) and JsonSerializer.DeserializeAsync, so no thread is blocked while the disk is read, and Task.Run is not used. Nothing is saved to the store until the whole file has been read and validated, so an error or a cancellation leaves the store unchanged. Orders that already exist are skipped, so a repeated import does not create duplicates. Default file: data/orders_import.json.
+
+DomainException (src/Core/DomainException.cs) is thrown when a business rule is broken: adding a line to a non-draft order, confirming an empty order, a forbidden status transition, an unknown order id, the limit of confirmed orders per customer, a duplicate order id. A wrong argument (empty id, negative price) is still ArgumentException, and technical failures (missing file) are not wrapped. A bad record in an import file becomes DomainException("Record N: ...") with the original error kept as InnerException.
+
+Cancellation: Ctrl+C or --timeout <ms> cancels a running import through a CancellationToken; the code checks the token between records. In Cli the catch order is OperationCanceledException (not an error), DomainException (data rejected), FileNotFoundException (file not found).
+
+Optional tasks:
+
+* --import-stream: streaming import with IAsyncEnumerable<Order> and await foreach; [EnumeratorCancellation] on the token parameter of the iterator. Orders are saved as they are read, so after a cancellation the already processed orders stay in the store (the regular import is all-or-nothing).
+* --timeout: the user token and the timeout token are linked with CancellationTokenSource.CreateLinkedTokenSource. A timeout is reported as TimeoutException, a user cancellation stays OperationCanceledException; a test proves that it was the timeout that fired.
+* --progress: IProgress<ImportProgress> reports the progress; the Cli subscriber draws the percent on one console line. A synchronous IProgress implementation is used, because Progress<T> posts callbacks to the thread pool in a console app.
+* Coverage: dotnet test --collect:"XPlat Code Coverage" (coverlet.collector). Result for Core: 43.35 % of lines, 40.52 % of branches. The code added in this lab (DomainException, importer, OrderService, Order) is covered 88–100 %; the lower total comes from earlier labs' code that is checked by manual runs (file and cache stores, vehicle importers, some reports).
+
+Unit tests (tests/Core.Tests, xUnit)
+
+The test project references only Core, not Cli. Tests use InMemoryOrderStore and fixed data (SampleData), temporary files are deleted in finally. 31 tests: Order invariants and DomainException, OrderService events and limit rule, reports ([Theory] with [InlineData], tie-breaker, empty sequence), async import, cancellation, streaming, timeout, progress.
