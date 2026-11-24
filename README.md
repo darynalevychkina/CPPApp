@@ -211,3 +211,29 @@ dotnet user-secrets set "Integration:ApiKey" "local-dev-key" --project src/Cli
 It is stored in %APPDATA%\Microsoft\UserSecrets\<UserSecretsId>\secrets.json (Linux/macOS: ~/.microsoft/usersecrets/<UserSecretsId>/secrets.json). --export prints only whether the key is present and its length.
 
 --export saves all orders as JSON to the data file; --import <file> reads the same format. The file is written atomically (orders.json.tmp, then File.Move), JSON keys are camelCase, Cyrillic stays readable, a broken file gives a clear error message.
+
+## Lab 10 — Minimal API (src/Api)
+
+Run (port 5080 is fixed in `launchSettings.json`):
+
+```powershell
+dotnet run --project src/Api
+```
+
+API docs (Development only): Scalar — http://localhost:5080/scalar/v1, OpenAPI — http://localhost:5080/openapi/v1.json
+
+| Method | Path | Codes |
+|---|---|---|
+| GET | /api/orders?page=1&pageSize=20&search=... → `{ items, total }` | 200, 400 |
+| GET | /api/orders/{id} | 200, 404 |
+| POST | /api/orders | 201, 400 |
+| PUT | /api/orders/{id} | 200, 400, 404, 409 |
+| DELETE | /api/orders/{id} | 204, 404 |
+| GET | /api/orders/{id}/total | 200, 404 |
+
+Validation: FluentValidation via an endpoint filter. Errors: ProblemDetails (`DomainException` → 409).
+
+```powershell
+curl.exe -i -X POST http://localhost:5080/api/orders -H "Content-Type: application/json" -d "{\"customerId\":\"CU-07\",\"lines\":[{\"productId\":\"V-1\",\"productName\":\"Corolla\",\"price\":14500,\"quantity\":2}]}"
+curl.exe "http://localhost:5080/api/orders?page=1&pageSize=5&search=yamaha"
+```
