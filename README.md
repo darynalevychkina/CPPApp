@@ -199,6 +199,15 @@ Settings are read from src/Cli/appsettings.json (no secrets in it) and appsettin
 
 A relative DataPath is resolved against the application folder (AppContext.BaseDirectory), not the current folder, so the data file is the same wherever the program is started from. Paths are built with Path.Combine, there are no absolute paths in the code.
 
+cd C:\dev\CrossApp
+dotnet run --project src/Cli -- --export
+cd src\Cli
+dotnet run -- --export
+
+dotnet user-secrets set "Integration:ApiKey" "local-dev-key" --project src/Cli
+git grep "local-dev-key"
+git grep -n "ApiKey" -- "*.json"
+
 Override the data folder:
 
 $env:CROSSAPP_DATA_PATH = "$env:USERPROFILE\data-test"          # PowerShell
