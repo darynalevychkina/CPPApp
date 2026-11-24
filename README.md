@@ -182,3 +182,32 @@ Optional tasks:
 Unit tests (tests/Core.Tests, xUnit)
 
 The test project references only Core, not Cli. Tests use InMemoryOrderStore and fixed data (SampleData), temporary files are deleted in finally. 31 tests: Order invariants and DomainException, OrderService events and limit rule, reports ([Theory] with [InlineData], tie-breaker, empty sequence), async import, cancellation, streaming, timeout, progress.
+
+Configuration, paths and secrets (lab 9)
+
+dotnet run --project src/Cli -- --export
+
+Settings are read from src/Cli/appsettings.json (no secrets in it) and appsettings.{Environment}.json. The profile is chosen with CROSSAPP_ENVIRONMENT (default Development: log level Debug; Production: Warning and data folder data-prod). Later sources override earlier ones: appsettings.json, profile file, user-secrets, CROSSAPP_* environment variables, command line.
+
+| Key | Default | Environment variable |
+|---|---|---|
+| Storage:DataPath | data | CROSSAPP_Storage__DataPath or CROSSAPP_DATA_PATH |
+| Storage:FileName | orders.json | CROSSAPP_Storage__FileName |
+| Orders:Currency | UAH | CROSSAPP_Orders__Currency |
+| Logging:MinimumLevel | Information | CROSSAPP_Logging__MinimumLevel |
+| Integration:ApiKey | not in the file | CROSSAPP_Integration__ApiKey |
+
+A relative DataPath is resolved against the application folder (AppContext.BaseDirectory), not the current folder, so the data file is the same wherever the program is started from. Paths are built with Path.Combine, there are no absolute paths in the code.
+
+Override the data folder:
+
+$env:CROSSAPP_DATA_PATH = "$env:USERPROFILE\data-test"          # PowerShell
+CROSSAPP_DATA_PATH=/tmp/data-test dotnet run --project src/Cli -- --export          # bash
+
+Secret (never stored in the repository, only UserSecretsId is):
+
+dotnet user-secrets set "Integration:ApiKey" "local-dev-key" --project src/Cli
+
+It is stored in %APPDATA%\Microsoft\UserSecrets\<UserSecretsId>\secrets.json (Linux/macOS: ~/.microsoft/usersecrets/<UserSecretsId>/secrets.json). --export prints only whether the key is present and its length.
+
+--export saves all orders as JSON to the data file; --import <file> reads the same format. The file is written atomically (orders.json.tmp, then File.Move), JSON keys are camelCase, Cyrillic stays readable, a broken file gives a clear error message.
