@@ -1,0 +1,83 @@
+@host = http://localhost:5080
+
+### health
+GET {{host}}/health
+
+### 1. list
+GET {{host}}/api/orders
+
+### 2. create (copy the id from the response, or from the Location header)
+# @name create
+POST {{host}}/api/orders
+Content-Type: application/json
+
+{
+  "customerId": "CU-07",
+  "lines": [
+    { "productId": "V-001", "productName": "Toyota Corolla", "price": 14500.00, "quantity": 1 },
+    { "productId": "V-005", "productName": "Тойота Королла", "price": 7600.00, "quantity": 2 }
+  ]
+}
+
+### 3. read it back
+@id = {{create.response.body.$.id}}
+GET {{host}}/api/orders/{{id}}
+
+### 4. total
+GET {{host}}/api/orders/{{id}}/total
+
+### 5. update (replace)
+PUT {{host}}/api/orders/{{id}}
+Content-Type: application/json
+
+{
+  "customerId": "CU-07",
+  "lines": [
+    { "productId": "V-001", "productName": "Toyota Corolla", "price": 14000.00, "quantity": 1 }
+  ]
+}
+
+### 6. update with invalid data -> 400 with the list of fields
+PUT {{host}}/api/orders/{{id}}
+Content-Type: application/json
+
+{
+  "customerId": "",
+  "lines": [
+    { "productId": "", "productName": "X", "price": -1, "quantity": 0 }
+  ]
+}
+
+### 7. confirm
+POST {{host}}/api/orders/{{id}}/confirm
+
+### 8. replace a confirmed order -> 409
+PUT {{host}}/api/orders/{{id}}
+Content-Type: application/json
+
+{
+  "customerId": "CU-07",
+  "lines": [ { "productId": "V-001", "productName": "Toyota Corolla", "price": 1, "quantity": 1 } ]
+}
+
+### 9. delete
+DELETE {{host}}/api/orders/{{id}}
+
+### 10. after DELETE -> 404
+GET {{host}}/api/orders/{{id}}
+
+### empty line list -> 400
+POST {{host}}/api/orders
+Content-Type: application/json
+
+{ "customerId": "CU-07", "lines": [] }
+
+### wrong field type -> 400, not 500
+POST {{host}}/api/orders
+Content-Type: application/json
+
+{ "customerId": "CU-07", "lines": [ { "productId": "V-1", "productName": "X", "price": 1, "quantity": "abc" } ] }
+
+### empty body -> 400
+POST {{host}}/api/orders
+Content-Type: application/json
